@@ -27,7 +27,7 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 110)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [text]);
 
@@ -38,7 +38,7 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
         if (clip) {
           setText(clip);
           setPasteFeedback(true);
-          setTimeout(() => setPasteFeedback(false), 1200);
+          setTimeout(() => setPasteFeedback(false), 1400);
           textareaRef.current?.focus();
         }
       }
@@ -72,23 +72,24 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 w-full border-t border-slate-800/80 bg-slate-950/95 pb-safe backdrop-blur-md">
-      <div className="mx-auto max-w-2xl px-3 py-2">
+    <div className="sticky bottom-0 z-20 w-full border-t border-slate-800/80 bg-slate-950/90 pb-safe backdrop-blur-xl">
+      <div className="mx-auto max-w-2xl px-3 py-2 sm:py-2.5">
         {/* Subtle Paste notification */}
         {pasteFeedback && (
-          <div className="text-[10px] text-emerald-400 font-medium pb-1 text-center animate-pulse">
-            Pasted from clipboard! ✓
+          <div className="text-[11px] text-emerald-400 font-semibold pb-1.5 text-center animate-pulse flex items-center justify-center gap-1">
+            <span>تم لصق الرسالة من الحافظة! ✓</span>
           </div>
         )}
 
-        {/* Input Pill Container (WhatsApp / ChatGPT style) */}
-        <div className="relative flex items-end gap-1.5 rounded-2xl border border-slate-700/80 bg-slate-900/90 p-1.5 shadow-md focus-within:border-emerald-500/70 focus-within:ring-1 focus-within:ring-emerald-500/30">
+        {/* Input Pill Container (WhatsApp / ChatGPT floating dock) */}
+        <div className="relative flex items-end gap-2 rounded-2xl border border-slate-800 bg-slate-900/90 p-1.5 shadow-xl transition-all focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20">
           {/* One-Tap Paste Button inside the bar */}
           <button
             type="button"
             onClick={handlePaste}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition active:scale-95"
-            title="Paste from clipboard"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-800/80 text-slate-300 hover:text-amber-400 hover:bg-slate-800 transition active:scale-95"
+            title="لصق الرسالة من الحافظة (Paste)"
+            aria-label="Paste"
           >
             <ClipboardPaste className="h-4 w-4" />
           </button>
@@ -113,7 +114,7 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
               type="button"
               onClick={handleClear}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-white transition"
-              title="Clear text"
+              title="مسح النص"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -124,12 +125,13 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
             type="button"
             disabled={!text.trim() || isLoading}
             onClick={handleSend}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition active:scale-95 ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 ${
               text.trim() && !isLoading
-                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 hover:brightness-110 text-white shadow-md shadow-emerald-950/40'
+                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
             }`}
-            title="Send"
+            title="إرسال"
+            aria-label="Send"
           >
             {isLoading ? (
               <Sparkles className="h-4 w-4 animate-spin text-emerald-400" />

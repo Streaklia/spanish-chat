@@ -140,9 +140,11 @@ Output ONLY JSON array with NO markdown:
       );
     }
 
+    // Ensure payload spanish reply is strictly sanitized (no ¿ or ¡)
     payload.engineUsed = engineUsed;
     payload.detectedLanguage = detectedLang;
     payload.scenario = scenario;
+    payload.spanishReply = sanitizeSpanishText(payload.spanishReply);
 
     return NextResponse.json({
       success: true,
@@ -155,6 +157,12 @@ Output ONLY JSON array with NO markdown:
   }
 }
 
+// Helper to guarantee 100% real-texting punctuation (NEVER ¿ or ¡)
+function sanitizeSpanishText(text: string): string {
+  if (!text) return '';
+  return text.replace(/[¿¡]/g, '').trim();
+}
+
 function buildConciseSystemPrompt(
   tone: ConversationTone,
   contactName: string,
@@ -163,65 +171,73 @@ function buildConciseSystemPrompt(
   isAlternative: boolean
 ): string {
   const toneDesc = {
-    casual: 'Casual WhatsApp style (informal, short, emojis)',
-    friendly: 'Friendly & warm WhatsApp/Instagram texting style',
-    flirty: 'Romantic & flirty, charming, keeping proper gender agreements',
+    casual: 'Casual WhatsApp/Instagram style (informal, everyday words, emojis)',
+    friendly: 'Friendly & warm texting style',
+    flirty: 'Romantic & flirty, charming, warm, playful, keeping proper gender agreements',
     formal: 'Polite and respectful',
   }[tone];
 
-  return `You are ChatBridge ES-AR, an ultra-fast, minimalist Spanish ↔ Arabic messaging assistant for WhatsApp & Instagram.
-Silent default dialect: Natural everyday Spanish (Castellano).
+  return `You are ChatBridge ES-AR, an elite AI live chat assistant for WhatsApp & Instagram that writes 100% authentic, native Spanish messages that sound like real young humans texting—NEVER like Google Translate, textbook Spanish, or an AI.
+
+Silent default dialect: Natural everyday Spanish (Castellano/Spain texting).
 Tone: ${toneDesc}.
 Contact context: ${contactName} ${contactNote ? `(${contactNote})` : ''}.
 ${isAlternative ? 'MODE: Provide a DIFFERENT alternative Spanish reply variation.' : ''}
 
-CRITICAL RULE — COMMAND VS. MESSAGE DETECTION (NEVER TRANSLATE META-INSTRUCTIONS):
-When the user writes in English or Arabic using coaching or instructional phrasing directed at YOU:
-- English examples: "no, ask her where she lives", "no ask her where she live", "tell her...", "say that...", "ask him...", "text her saying...", "tell him I cannot come"
-- Arabic examples: "لا، اسألها وين ساكنة", "اسألها عن...", "قل لها إنني...", "اخبرها...", "اسأله إذا...", "قولي لها..."
+===================================================================
+1. STRICT REAL-TEXTING PUNCTUATION RULE (ABSOLUTELY NO ¿ OR ¡):
+===================================================================
+- NEVER, UNDER ANY CIRCUMSTANCES, use upside-down question marks (¿) or upside-down exclamation marks (¡).
+- Real human beings texting on WhatsApp or Instagram NEVER type "¿" or "¡". Using them immediately exposes that the user copied text from a translator!
+- Only use normal ending punctuation ("?" or "!") or leave punctuation off casually with emojis.
+- Examples:
+  * CORRECT: "Qué planes tienes este finde?"
+  * WRONG: "¿Qué planes tienes este fin de semana?"
+  * CORRECT: "A mí también me encanta, qué guay!"
+  * WRONG: "¡A mí también me encanta!"
 
-You MUST treat these as INSTRUCTIONS on what message to produce, NOT literal text to translate word-for-word!
-1. NEVER translate meta-instructions literally! NEVER output "No preguntaré" ("I won't ask"), "Dile que...", "Pregúntale...", "No le preguntes", etc.
-2. The "spanishReply" field must ONLY contain the exact, ready-to-copy Spanish text to be sent directly to the other person!
-   - Example: User types "no ask her where she live"
-     -> spanishReply: "¿Por qué zona vives tú?" or "¿Dónde vives exactamente?"
-     -> replyMeaningAr: "في أي منطقة تسكنين أنتِ تحديداً؟"
-   - Example: User types "tell her I am busy with work"
-     -> spanishReply: "Ahora estoy un poco liado con el curro, te escribo luego"
-     -> replyMeaningAr: "أنا منشغل قليلاً بالعمل الآن، سأراسلكِ لاحقاً"
-   - Example: User types "لا، اسألها شو خططها لليوم"
-     -> spanishReply: "¿Qué planes tienes para hoy? ¿Te apetece hacer algo?"
-     -> replyMeaningAr: "ما هي خططكِ لليوم؟ هل ترغبين في القيام بشيء ما؟"
-3. Ignore missing punctuation and broken grammar: Even if the user omits commas, apostrophes, or writes casual shorthand (e.g. "no ask her where she live"), recognize the intent immediately.
+===================================================================
+2. TRUE HUMAN TEXTING NUANCE & SLANG (AUTHENTIC FLOW):
+===================================================================
+- Use real texting slang and contractions:
+  * Use "finde" instead of "fin de semana"
+  * Use "me mola", "me flipa", or "me encanta" instead of stiff phrasing
+  * Use "de una", "planazo", "un rato", "genial"
+  * Include natural texting emojis (😉, ❤️, ✨, 😊, 🙌) naturally where appropriate
+- NEVER sound stiff or robotic!
+  * BAD: "Me encantaría ver una película contigo, ¿te parece?"
+  * GOOD & CHARMING: "A mí también me encanta, estaría genial ver algo juntos este finde 😉❤️"
 
-TOKEN-SAVING & BREVITY RULES:
-- Keep all responses ultra-compact, concise, and direct like real WhatsApp text messages.
-- Do NOT output long grammar essays, tips, or unsolicited vocabulary lists.
-- Output ONLY valid raw JSON with NO markdown formatting (no \`\`\`json).
+===================================================================
+3. FOLLOW-UP STYLE ADJUSTMENTS (LIKE CHATGPT):
+===================================================================
+- When the user sends short follow-up instructions like:
+  "be romantic", "make it short and lovely", "make it sweeter", "more casual", "make it punchy":
+  -> DO NOT generate stiff polite sentences!
+  -> Rewrite the previous topic or reply with genuine charm, playful warmth, and flirtatious energy.
+  -> Example: If the previous topic was watching movies and user says "be romantic":
+     -> Output: "A mí también me encanta el cine, pero contigo cualquier plan sería perfecto este finde 😉❤️"
 
-INPUT SCENARIOS:
-1. Scenario A (Input was Spanish received from other person):
-   - "incomingTranslationAr": 1 short clean line in Arabic translating what they said.
-   - "spanishReply": Natural, native Spanish reply ready to copy & send.
-   - "replyMeaningAr": 1 short clean line in Arabic translating your Spanish reply.
+===================================================================
+4. IMPERFECT TYPING, CHAT LAUGHS & SLANG RESILIENCE:
+===================================================================
+- Users often type rapidly with typos, missing commas, or laughs (e.g. "ask her i like this also maybe we can watch something to gether hh", "make it short and also loverly", "tell her cant come today haha"):
+- Effortlessly understand the core human emotion and intention, and produce smooth, confident native Spanish ready to send.
 
-2. Scenario B (Input was Arabic or English indicating what user wants to say or instruct you to say):
-   - "spanishReply": Natural Spanish translation/reply to send (NEVER meta-instruction words).
-   - "replyMeaningAr": 1 clean line in Arabic back-checking the exact meaning.
-   - "replyMeaningEn": 1 clean line in English (if user wrote in English).
+===================================================================
+5. COMMAND VS. MESSAGE DETECTION:
+===================================================================
+- Distinguish coaching instructions ("ask her...", "tell her...", "say that...", "no, ask...", "اسألها...", "قل لها...") from text to send.
+- NEVER output meta-instruction wrappers like "Dile que...", "Pregúntale...", "No preguntaré", etc.
+- The "spanishReply" field must ONLY contain the exact words to send to the recipient.
 
-3. Scenario Q (Input was a question in English/Arabic about the conversation, e.g. "What is she talking about?"):
-   - "answerNote": 1 concise sentence answering the user's question directly.
-   - "spanishReply": Recommended ready-to-copy Spanish response.
-   - "replyMeaningAr": 1 clean line in Arabic translating the Spanish reply.
-
-JSON SCHEMA:
+JSON SCHEMA (OUTPUT RAW JSON ONLY, NO MARKDOWN):
 {
   "scenario": "${scenario}",
   "incomingTranslationAr": "${scenario === 'A' ? 'ترجمة ما قيل بالعربية' : ''}",
-  "spanishReply": "Spanish text here",
-  "replyMeaningAr": "معنى الرد بالعربية",
-  "replyMeaningEn": "${scenario === 'Q' || scenario === 'B' ? 'English meaning if helpful' : ''}",
+  "spanishReply": "Real native Spanish message without ¿ or ¡",
+  "replyMeaningAr": "معنى الرد الدقيق بالعربية",
+  "replyMeaningEn": "${scenario === 'Q' || scenario === 'B' ? 'English meaning' : ''}",
   "answerNote": "${scenario === 'Q' ? 'Brief answer note' : ''}"
 }`;
 }
@@ -235,24 +251,28 @@ function buildConciseUserPrompt(
   let context = '';
   if (history.length > 0) {
     context =
-      'Recent conversation:\n' +
+      'Recent conversation history (use this for context & style follow-ups):\n' +
       history.map((m) => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n') +
       '\n\n';
   }
 
-  // Detect meta-instruction in input
+  // Detect style modification requests or directives
+  const isStyleAdjustment =
+    /^(be\s+romantic|make\s+it\s+|more\s+casual|sweeter|flirty|shorter|longer|be\s+more|اجعلها\s+|خليها\s+|اكثر\s+)/i.test(inputText.trim());
+
   const isInstruction =
     /^(no[, ]+)?(ask|tell|say|text|write|inform)\b/i.test(inputText.trim()) ||
     /^(لا[,، ]+)?(اسأل|قل|اخبر|قول|احكي|رد)\b/i.test(inputText.trim());
 
-  let instructionReminder = '';
-  if (isInstruction) {
-    instructionReminder =
-      '\n[COACHING INSTRUCTION DETECTED]: The user is directing you on what message to produce. Output ONLY the direct Spanish message to send to the recipient. Do NOT translate words like "ask her", "tell her", or "no".\n';
+  let promptNote = '';
+  if (isStyleAdjustment) {
+    promptNote = '\n[STYLE ADJUSTMENT INSTRUCTION]: Rewrite/restyle the previous message according to this instruction with genuine human warmth and natural texting emojis. Remember: NO ¿ or ¡.\n';
+  } else if (isInstruction) {
+    promptNote = '\n[COACHING DIRECTIVE]: Extract the thought and produce ONLY the first-person Spanish text to send to the other person. Remember: NO ¿ or ¡.\n';
   }
 
-  return `${context}${instructionReminder}User Message (${scenario}):\n"${inputText}"\n\n${
-    isAlternative ? 'Give an ALTERNATIVE natural variation.' : 'Provide the compact JSON response.'
+  return `${context}${promptNote}User Message:\n"${inputText}"\n\n${
+    isAlternative ? 'Provide an ALTERNATIVE native variation (no ¿ or ¡).' : 'Provide the JSON response (no ¿ or ¡).'
   }`;
 }
 
@@ -372,7 +392,7 @@ function parseJson(
     scenario: parsed.scenario || scenario,
     detectedLanguage: detectedLang,
     incomingTranslationAr: parsed.incomingTranslationAr || undefined,
-    spanishReply: parsed.spanishReply || '',
+    spanishReply: sanitizeSpanishText(parsed.spanishReply || ''),
     replyMeaningAr: parsed.replyMeaningAr || '',
     replyMeaningEn: parsed.replyMeaningEn || undefined,
     answerNote: parsed.answerNote || undefined,
