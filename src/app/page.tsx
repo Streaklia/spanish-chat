@@ -84,6 +84,10 @@ export default function HomePage() {
     setSettings((prev) => ({ ...prev, engine }));
   };
 
+  const handleSelectModel = (selectedModel: string) => {
+    setSettings((prev) => ({ ...prev, selectedModel }));
+  };
+
   const handleChangeTone = (tone: ConversationTone) => {
     setSettings((prev) => ({ ...prev, tone }));
     setThreads((prev) =>
@@ -145,6 +149,7 @@ export default function HomePage() {
           inputText: text.trim(),
           tone: activeThread.defaultTone || settings.tone,
           engine: settings.engine,
+          selectedModel: settings.selectedModel,
           contactName: activeThread.name,
           contactNote: activeThread.note,
           history: historyContext,
@@ -223,6 +228,7 @@ export default function HomePage() {
           inputText,
           tone: activeThread.defaultTone || settings.tone,
           engine: settings.engine,
+          selectedModel: settings.selectedModel,
           contactName: activeThread.name,
           contactNote: activeThread.note,
           history: historyContext,
@@ -338,6 +344,7 @@ export default function HomePage() {
         activeThread={activeThread}
         onUpdateThreadNote={handleUpdateThreadNote}
         onChangeEngine={handleChangeEngine}
+        onSelectModel={handleSelectModel}
         onChangeTone={handleChangeTone}
         onSaveSettings={(newSettings) => setSettings(newSettings)}
       />

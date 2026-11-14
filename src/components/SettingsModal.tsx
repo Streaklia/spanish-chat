@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Sparkles,
@@ -8,12 +8,13 @@ import {
   Heart,
   Briefcase,
   Coffee,
-  Info,
-  Key,
-  ShieldCheck,
-  Check
+  Check,
+  RefreshCw,
+  Play,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import { AIEngine, AppSettings, ContactThread, ConversationTone } from '@/types';
+import { AIEngine, AppSettings, ContactThread, ConversationTone, FreeModelOption } from '@/types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface SettingsModalProps {
   activeThread: ContactThread;
   onUpdateThreadNote: (note: string) => void;
   onChangeEngine: (engine: AIEngine) => void;
+  onSelectModel: (model: string) => void;
   onChangeTone: (tone: ConversationTone) => void;
   onSaveSettings: (settings: AppSettings) => void;
 }
@@ -40,16 +42,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeThread,
   onUpdateThreadNote,
   onChangeEngine,
+  onSelectModel,
   onChangeTone,
-  onSaveSettings,
 }) => {
   const [noteValue, setNoteValue] = useState(activeThread.note || '');
   const [isSaved, setIsSaved] = useState(false);
 
-  // Sync note value when thread changes
-  React.useEffect(() => {
+  // Free models state
+  const [modelsList, setModelsList] = useState<FreeModelOption[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(settings.selectedModel || '');
+
+  // One-click test state
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    status: 'idle' | 'success' | 'error';
+    message: string;
+  }>({ status: 'idle', message: '' });
+
+  // Sync note
+  useEffect(() => {
     setNoteValue(activeThread.note || '');
   }, [activeThread.id, activeThread.note]);
+
+  // Fetch free models when modal opens or engine changes
+  const fetchFreeModels = async (provider: AIEngine) => {
+    setIsLoadingModels(true);
+    setTestResult({ status: 'idle', message: '' });
+    try {
+      const res = await fetch(`/api/models?provider=${provider}`);
+      const data = await res.json();
+      if (data.models && Array.isArray(data.models)) {
+        setModelsList(data.models);
+        // Default to first model or keep current if valid
+        if (!selectedModel || !data.models.some((m: FreeModelOption) => m.id === selectedModel)) {
+          const first = data.models[0]?.id || '';
+          setSelectedModel(first);
+          onSelectModel(first);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load free models:', e);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchFreeModels(settings.engine);
+    }
+  }, [isOpen, settings.engine]);
 
   if (!isOpen) return null;
 
@@ -57,6 +100,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onUpdateThreadNote(noteValue.trim());
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 1500);
+  };
+
+  const handleEngineSwitch = (engine: AIEngine) => {
+    onChangeEngine(engine);
+    setSelectedModel('');
+    fetchFreeModels(engine);
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId);
+    onSelectModel(modelId);
+    setTestResult({ status: 'idle', message: '' });
+  };
+
+  // One-Click Model Test
+  const handleTestModel = async () => {
+    if (!selectedModel) return;
+    setIsTesting(true);
+    setTestResult({ status: 'idle', message: '' });
+
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: settings.engine,
+          model: selectedModel,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTestResult({
+          status: 'success',
+          message: data.message || `Working ✓ (${data.latencyMs}ms)`,
+        });
+      } else {
+        setTestResult({
+          status: 'error',
+          message: data.error || 'Failed / Rate Limited ✗',
+        });
+      }
+    } catch (e) {
+      setTestResult({
+        status: 'error',
+        message: 'Timeout / Network Error ✗',
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -106,39 +199,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 2. AI Engine Switcher */}
+          {/* 2. Provider Switcher (Free Only) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[11px] font-semibold text-slate-300">
-                محرك الذكاء الاصطناعي (AI Engine):
+                المزود المجاني (Free Provider):
               </label>
-              <span className="text-[10px] text-emerald-400">تحويل تلقائي Fallback</span>
+              <span className="text-[10px] text-emerald-400 font-medium">100% Free Only</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-slate-900 p-1 border border-slate-800">
               <button
-                onClick={() => onChangeEngine('openrouter')}
+                onClick={() => handleEngineSwitch('openrouter')}
                 className={`rounded-md py-1.5 text-[11px] font-semibold transition ${
                   settings.engine === 'openrouter'
                     ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                OpenRouter (Fast)
+                OpenRouter (Free)
               </button>
               <button
-                onClick={() => onChangeEngine('gemini')}
+                onClick={() => handleEngineSwitch('gemini')}
                 className={`rounded-md py-1.5 text-[11px] font-semibold transition ${
                   settings.engine === 'gemini'
                     ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-sm'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                Gemini 3.8
+                Gemini (Free Tier)
               </button>
             </div>
           </div>
 
-          {/* 3. Contact Context Note */}
+          {/* 3. Compact Free Model Dropdown + Refresh + One-Click "Test" Button */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+                النموذج المجاني النشط:
+              </label>
+              {/* Refresh list icon */}
+              <button
+                onClick={() => fetchFreeModels(settings.engine)}
+                disabled={isLoadingModels}
+                className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-400 transition disabled:opacity-50"
+                title="تحديث قائمة النماذج المجانية"
+              >
+                <RefreshCw className={`h-3 w-3 ${isLoadingModels ? 'animate-spin text-emerald-400' : ''}`} />
+                <span>تحديث</span>
+              </button>
+            </div>
+
+            {/* Dropdown + Test button row */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={selectedModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                disabled={isLoadingModels || modelsList.length === 0}
+                className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none truncate"
+              >
+                {isLoadingModels ? (
+                  <option>جاري جلب النماذج المجانية...</option>
+                ) : modelsList.length > 0 ? (
+                  modelsList.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))
+                ) : (
+                  <option>لا توجد نماذج</option>
+                )}
+              </select>
+
+              {/* One-Click "Test Model" Button */}
+              <button
+                onClick={handleTestModel}
+                disabled={isTesting || !selectedModel}
+                className="flex items-center gap-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition active:scale-95 disabled:opacity-50 shrink-0"
+                title="فحص استجابة النموذج الآن"
+              >
+                <Play className={`h-3 w-3 text-amber-400 ${isTesting ? 'animate-spin' : ''}`} />
+                <span>{isTesting ? 'فحص...' : 'Test'}</span>
+              </button>
+            </div>
+
+            {/* Test result badge */}
+            {testResult.status !== 'idle' && (
+              <div
+                className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold animate-fade-in ${
+                  testResult.status === 'success'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                }`}
+              >
+                {testResult.status === 'success' ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span className="truncate">{testResult.message}</span>
+              </div>
+            )}
+
+            <p className="text-[10px] text-slate-400">
+              ⚡ تحويل تلقائي صامت: إذا واجه هذا النموذج ضغطاً أو تأخيراً، يتم الانتقال تلقائياً لأسرع نموذج مجاني بديل.
+            </p>
+          </div>
+
+          {/* 4. Contact Context Note */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-[11px] font-semibold text-slate-300">
@@ -165,9 +332,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 حفظ
               </button>
             </div>
-            <span className="text-[10px] text-slate-400 mt-1 block">
-              تساعد الذكاء الاصطناعي على ضبط التذكير والتأنيث بدقة (مثل cansada vs cansado).
-            </span>
           </div>
         </div>
 

@@ -214,8 +214,8 @@ export const ResponseCard: React.FC<ResponseCardProps> = ({
       )}
 
       {/* 5. Bottom Action Bar */}
-      <div className="mt-2.5 flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
-        {/* On-Demand Explain Words Button */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 text-[11px]">
+        {/* Left: On-Demand Explain Words Button */}
         <button
           onClick={handleToggleExplainWords}
           className="flex items-center gap-1.5 text-slate-400 hover:text-emerald-400 transition"
@@ -225,16 +225,30 @@ export const ResponseCard: React.FC<ResponseCardProps> = ({
           {showVocab ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
 
-        {/* Another Option Button */}
-        <button
-          onClick={onGenerateAlternative}
-          disabled={isGeneratingAlternative}
-          className="flex items-center gap-1.5 text-slate-400 hover:text-amber-400 transition disabled:opacity-50"
-          title="توليد خيار إسباني آخر بنفس المعنى"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 text-amber-400 ${isGeneratingAlternative ? 'animate-spin' : ''}`} />
-          <span className="font-medium">Another Option (خيار آخر)</span>
-        </button>
+        {/* Right: Model badge + Another Option Button */}
+        <div className="flex items-center gap-2">
+          {/* Subtle Model Badge */}
+          {payload.modelUsed && (
+            <span
+              className="text-[10px] text-slate-400 font-mono flex items-center gap-1 bg-slate-950/70 border border-slate-800 px-1.5 py-0.5 rounded-md"
+              title={`Answered by free model: ${payload.modelUsed}`}
+            >
+              <Sparkles className="h-2.5 w-2.5 text-emerald-400" />
+              <span>{payload.modelUsed.split('/').pop() || payload.modelUsed}</span>
+            </span>
+          )}
+
+          {/* Another Option Button */}
+          <button
+            onClick={onGenerateAlternative}
+            disabled={isGeneratingAlternative}
+            className="flex items-center gap-1.5 text-slate-400 hover:text-amber-400 transition disabled:opacity-50"
+            title="توليد خيار إسباني آخر بنفس المعنى"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-amber-400 ${isGeneratingAlternative ? 'animate-spin' : ''}`} />
+            <span className="font-medium">Another Option</span>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -11,15 +11,16 @@ export interface VocabItem {
 }
 
 export interface AssistantResponsePayload {
-  scenario: 'A' | 'B' | 'Q'; // A = Spanish received, B = User wanting to send in AR/EN, Q = Question asked
+  scenario: 'A' | 'B' | 'Q';
   detectedLanguage: 'es' | 'ar' | 'en';
-  incomingTranslationAr?: string; // Scenario A: What they said in Arabic
-  spanishReply: string;          // Suggested or translated Spanish reply
-  replyMeaningAr: string;        // Meaning of the Spanish reply in Arabic
-  replyMeaningEn?: string;       // Meaning in English if user typed in English
-  answerNote?: string;           // Concise answer if user asked a question (e.g. "She is asking if you want to meet up")
-  vocabulary?: VocabItem[];      // On-demand vocab list (empty by default to save tokens)
+  incomingTranslationAr?: string;
+  spanishReply: string;
+  replyMeaningAr: string;
+  replyMeaningEn?: string;
+  answerNote?: string;
+  vocabulary?: VocabItem[];
   engineUsed: 'gemini' | 'openrouter' | 'smart-engine';
+  modelUsed?: string; // Exact free model that answered (e.g. "nemotron-3.5-lightning:free")
   isAlternative?: boolean;
 }
 
@@ -35,7 +36,7 @@ export interface ChatMessage {
 export interface ContactThread {
   id: string;
   name: string;
-  note?: string; // e.g., "Crush, female, lives in Madrid", "Coworker, male"
+  note?: string;
   defaultTone: ConversationTone;
   messages: ChatMessage[];
   createdAt: number;
@@ -44,8 +45,15 @@ export interface ContactThread {
 
 export interface AppSettings {
   engine: AIEngine;
+  selectedModel?: string;
   tone: ConversationTone;
   theme: 'dark' | 'light';
   customGeminiKey?: string;
   customOpenRouterKey?: string;
+}
+
+export interface FreeModelOption {
+  id: string;
+  name: string;
+  provider: 'openrouter' | 'gemini';
 }

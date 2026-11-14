@@ -14,6 +14,7 @@ interface ChatRequestBody {
   spanishText?: string;
   tone?: ConversationTone;
   engine?: 'gemini' | 'openrouter';
+  selectedModel?: string;
   contactName?: string;
   contactNote?: string;
   history?: ChatHistoryItem[];
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       spanishText = '',
       tone = 'friendly',
       engine = 'openrouter',
+      selectedModel,
       contactName = 'Chat',
       contactNote = '',
       history = [],
@@ -58,7 +60,7 @@ Provide concise Arabic meaning and short tip.
 Output ONLY JSON array with NO markdown:
 [{"spanish": "word", "arabic": "معنى", "tip": "نصيحة سريعة"}]`;
 
-        const vocabRes = await callOpenRouterVocab(openRouterKey, vocabPrompt);
+        const vocabRes = await callOpenRouterVocab(openRouterKey, vocabPrompt, selectedModel);
         return NextResponse.json({ success: true, data: { vocabulary: vocabRes } });
       } catch (err) {
         // Fallback
@@ -96,31 +98,40 @@ Output ONLY JSON array with NO markdown:
 
     let payload: AssistantResponsePayload | null = null;
     let engineUsed: 'gemini' | 'openrouter' | 'smart-engine' = 'smart-engine';
+    let modelUsed = selectedModel || '';
 
-    // Primary & secondary execution
+    // Primary & secondary execution with automatic failover between free models
     const primaryEngine = engine;
     const secondaryEngine = engine === 'gemini' ? 'openrouter' : 'gemini';
 
     if (primaryEngine === 'openrouter') {
       try {
-        payload = await callOpenRouter(openRouterKey, systemPrompt, userPromptContent, scenario, detectedLang);
-        if (payload) engineUsed = 'openrouter';
+        const result = await callOpenRouter(openRouterKey, systemPrompt, userPromptContent, scenario, detectedLang, selectedModel);
+        payload = result.payload;
+        modelUsed = result.modelUsed;
+        engineUsed = 'openrouter';
       } catch (e) {
-        // Fallback to Gemini
+        // Silent fallback to Gemini free tier
         try {
-          payload = await callGemini(geminiKey, systemPrompt, userPromptContent, scenario, detectedLang);
-          if (payload) engineUsed = 'gemini';
+          const result = await callGemini(geminiKey, systemPrompt, userPromptContent, scenario, detectedLang);
+          payload = result.payload;
+          modelUsed = result.modelUsed;
+          engineUsed = 'gemini';
         } catch (e2) {}
       }
     } else {
       try {
-        payload = await callGemini(geminiKey, systemPrompt, userPromptContent, scenario, detectedLang);
-        if (payload) engineUsed = 'gemini';
+        const result = await callGemini(geminiKey, systemPrompt, userPromptContent, scenario, detectedLang, selectedModel);
+        payload = result.payload;
+        modelUsed = result.modelUsed;
+        engineUsed = 'gemini';
       } catch (e) {
-        // Fallback to OpenRouter
+        // Silent fallback to OpenRouter free models
         try {
-          payload = await callOpenRouter(openRouterKey, systemPrompt, userPromptContent, scenario, detectedLang);
-          if (payload) engineUsed = 'openrouter';
+          const result = await callOpenRouter(openRouterKey, systemPrompt, userPromptContent, scenario, detectedLang);
+          payload = result.payload;
+          modelUsed = result.modelUsed;
+          engineUsed = 'openrouter';
         } catch (e2) {}
       }
     }
@@ -128,6 +139,7 @@ Output ONLY JSON array with NO markdown:
     // Smart fallback if external APIs fail
     if (!payload) {
       engineUsed = 'smart-engine';
+      modelUsed = 'smart-engine';
       payload = generateSmartResponse(
         {
           inputText,
@@ -142,6 +154,7 @@ Output ONLY JSON array with NO markdown:
 
     // Ensure payload spanish reply is strictly sanitized (no ¿ or ¡)
     payload.engineUsed = engineUsed;
+    payload.modelUsed = modelUsed;
     payload.detectedLanguage = detectedLang;
     payload.scenario = scenario;
     payload.spanishReply = sanitizeSpanishText(payload.spanishReply);
@@ -150,6 +163,7 @@ Output ONLY JSON array with NO markdown:
       success: true,
       data: payload,
       engineUsed,
+      modelUsed,
     });
   } catch (error: any) {
     console.error('Chat API Error:', error);
@@ -276,40 +290,76 @@ function buildConciseUserPrompt(
   }`;
 }
 
+const FREE_OPENROUTER_FALLBACKS = [
+  'nvidia/nemotron-3.5-lightning:free',
+  'inclusionai/ling-3.2-flash:free',
+  'google/gemma-4-31b-it:free',
+  'liquid/lfm-3-1.7b:free',
+  'particle-ai/particle-1:free',
+];
+
+const FREE_GEMINI_FALLBACKS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
+];
+
 async function callOpenRouter(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
   scenario: 'A' | 'B' | 'Q',
-  detectedLang: 'es' | 'ar' | 'en'
-): Promise<AssistantResponsePayload> {
+  detectedLang: 'es' | 'ar' | 'en',
+  preferredModel?: string
+): Promise<{ payload: AssistantResponsePayload; modelUsed: string }> {
   if (!apiKey) throw new Error('No OpenRouter API key');
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    signal: AbortSignal.timeout(10000),
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://chatbridge.app',
-      'X-Title': 'ChatBridge ES-AR',
-    },
-    body: JSON.stringify({
-      model: 'meta-llama/llama-3.3-70b-instruct',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-    }),
-  });
+  // Build strictly free models list
+  const candidates: string[] = [];
+  if (preferredModel && (preferredModel.endsWith(':free') || preferredModel === 'openrouter/free')) {
+    candidates.push(preferredModel);
+  }
+  for (const m of FREE_OPENROUTER_FALLBACKS) {
+    if (!candidates.includes(m)) candidates.push(m);
+  }
 
-  if (!res.ok) throw new Error(`OpenRouter HTTP ${res.status}`);
-  const data = await res.json();
-  const raw = data?.choices?.[0]?.message?.content;
-  if (!raw) throw new Error('Empty OpenRouter response');
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
 
-  return parseJson(raw, scenario, detectedLang, 'openrouter');
+  for (const model of candidates) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        signal: AbortSignal.timeout(8000),
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://chatbridge.app',
+          'X-Title': 'ChatBridge ES-AR',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      if (!res.ok) continue; // Try next free model on 429, 503, etc.
+      const data = await res.json();
+      const raw = data?.choices?.[0]?.message?.content;
+      if (raw) {
+        const payload = parseJson(raw, scenario, detectedLang, 'openrouter');
+        return { payload, modelUsed: model };
+      }
+    } catch (e) {
+      // Continue to next free candidate
+    }
+  }
+
+  throw new Error('All OpenRouter free models failed');
 }
 
 async function callGemini(
@@ -317,12 +367,20 @@ async function callGemini(
   systemPrompt: string,
   userPrompt: string,
   scenario: 'A' | 'B' | 'Q',
-  detectedLang: 'es' | 'ar' | 'en'
-): Promise<AssistantResponsePayload> {
+  detectedLang: 'es' | 'ar' | 'en',
+  preferredModel?: string
+): Promise<{ payload: AssistantResponsePayload; modelUsed: string }> {
   if (!apiKey) throw new Error('No Gemini API key');
 
-  const models = ['gemini-3.8-flash', 'gemini-flash-latest'];
-  for (const m of models) {
+  const candidates: string[] = [];
+  if (preferredModel && FREE_GEMINI_FALLBACKS.includes(preferredModel)) {
+    candidates.push(preferredModel);
+  }
+  for (const m of FREE_GEMINI_FALLBACKS) {
+    if (!candidates.includes(m)) candidates.push(m);
+  }
+
+  for (const m of candidates) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
       const res = await fetch(url, {
@@ -339,23 +397,35 @@ async function callGemini(
       if (!res.ok) continue;
       const data = await res.json();
       const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (raw) return parseJson(raw, scenario, detectedLang, 'gemini');
+      if (raw) {
+        const payload = parseJson(raw, scenario, detectedLang, 'gemini');
+        return { payload, modelUsed: m };
+      }
     } catch (e) {}
   }
 
-  throw new Error('Gemini failed');
+  throw new Error('All Gemini free models failed');
 }
 
-async function callOpenRouterVocab(apiKey: string, prompt: string): Promise<VocabItem[]> {
+async function callOpenRouterVocab(
+  apiKey: string,
+  prompt: string,
+  preferredModel?: string
+): Promise<VocabItem[]> {
+  const model =
+    preferredModel && preferredModel.endsWith(':free')
+      ? preferredModel
+      : 'nvidia/nemotron-3.5-lightning:free';
+
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(7000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'meta-llama/llama-3.3-70b-instruct',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
     }),
