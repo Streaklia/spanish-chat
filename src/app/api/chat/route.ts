@@ -238,39 +238,51 @@ async function callGemini(
 ): Promise<AssistantResponsePayload> {
   if (!apiKey) throw new Error('No Gemini API key available');
 
-  // We can try models: gemini-1.5-flash or gemini-2.0-flash
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+  let lastError: Error | null = null;
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        responseMimeType: 'application/json',
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        signal: AbortSignal.timeout(6000),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemPrompt }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: userPrompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            responseMimeType: 'application/json',
+          }
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 120)}`);
       }
-    }),
-  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API HTTP ${response.status}: ${errorText.substring(0, 150)}`);
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error('Empty response from Gemini');
+
+      return parseJsonResponse(rawText, scenario, detectedLang, 'gemini');
+    } catch (err: any) {
+      lastError = err;
+      // Try next model if available
+    }
   }
 
-  const data = await response.json();
-  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error('Empty response from Gemini');
-
-  return parseJsonResponse(rawText, scenario, detectedLang, 'gemini');
+  throw lastError || new Error('All Gemini candidate models failed');
 }
 
 async function callOpenRouter(
@@ -286,6 +298,7 @@ async function callOpenRouter(
 
   const response = await fetch(url, {
     method: 'POST',
+    signal: AbortSignal.timeout(12000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
@@ -293,13 +306,12 @@ async function callOpenRouter(
       'X-Title': 'ChatBridge ES-AR',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.0-flash-001',
+      model: 'meta-llama/llama-3.3-70b-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      response_format: { type: 'json_object' }
     }),
   });
 
@@ -321,12 +333,17 @@ function parseJsonResponse(
   detectedLang: 'es' | 'ar',
   engine: 'gemini' | 'openrouter'
 ): AssistantResponsePayload {
-  // Clean potential markdown code blocks if the model included them
   let cleaned = rawText.trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  // Strip markdown code fences if model enclosed JSON in ```json
+  const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (match) {
+    cleaned = match[1].trim();
+  } else {
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
   }
 
   const parsed = JSON.parse(cleaned);
