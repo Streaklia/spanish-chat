@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e1b4b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="esGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    <linearGradient id="arGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="bridgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="url(#bridgeGrad)" stroke-width="4" stroke-opacity="0.4" />
+
+  <!-- Left Bubble: Spanish (ES) -->
+  <g filter="url(#glow)">
+    <path d="M120 160 C120 125, 145 100, 180 100 L260 100 C295 100, 320 125, 320 160 L320 210 C320 245, 295 270, 260 270 L180 270 L130 305 L140 270 C125 265, 120 250, 120 230 Z"
+          fill="url(#esGrad)" fill-opacity="0.95" />
+    <text x="210" y="200" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="52" fill="#ffffff" text-anchor="middle">¡Hola!</text>
+  </g>
+
+  <!-- Right Bubble: Arabic (AR) -->
+  <g filter="url(#glow)">
+    <path d="M392 250 C392 215, 367 190, 332 190 L252 190 C217 190, 192 215, 192 250 L192 300 C192 335, 217 360, 252 360 L332 360 L382 395 L372 360 C387 355, 392 340, 392 320 Z"
+          fill="url(#arGrad)" fill-opacity="0.95" />
+    <text x="300" y="292" font-family="'Cairo', 'Segoe UI', Tahoma, sans-serif" font-weight="bold" font-size="46" fill="#ffffff" text-anchor="middle">أهلاً</text>
+  </g>
+
+  <!-- Central Bridge / Lightning Pulse -->
+  <path d="M210 380 Q 256 350 302 380" fill="none" stroke="url(#bridgeGrad)" stroke-width="8" stroke-linecap="round" />
+  <circle cx="210" cy="380" r="6" fill="#ef4444" />
+  <circle cx="256" cy="365" r="7" fill="#f59e0b" />
+  <circle cx="302" cy="380" r="6" fill="#10b981" />
+
+  <!-- Subtitle Badge -->
+  <text x="256" y="440" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="28" fill="#e2e8f0" letter-spacing="3" text-anchor="middle">CHATBRIDGE</text>
+  <text x="256" y="468" font-family="system-ui, -apple-system, sans-serif" font-weight="600" font-size="16" fill="#94a3b8" letter-spacing="4" text-anchor="middle">ES ⇄ AR</text>
+</svg>
