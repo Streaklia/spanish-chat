@@ -15,7 +15,29 @@ export function generateSmartResponse(
   const { inputText, tone, isAlternative = false } = ctx;
   const clean = inputText.trim().toLowerCase();
 
-  // 1. Spanish Input (Scenario A: Received message)
+  // Check for meta-instruction coaching patterns in English and Arabic
+  // e.g., "no ask her where she live", "tell her...", "ask him...", "لا، اسألها..."
+  const isWhereSheLives =
+    /(where\s+(she|he|you)\s+live|وين\s+(ساكنة|عايشة|ساكن)|اين\s+(تعيش|تسكن|تسكنين)|من\s+وين)/i.test(clean);
+
+  if (isWhereSheLives) {
+    const isFemale = /(she|her|ساكنة|عايشة|تسكنين|بنت)/i.test(clean);
+    return {
+      scenario: 'B',
+      detectedLanguage: detectedLanguage === 'ar' ? 'ar' : 'en',
+      spanishReply: isAlternative
+        ? '¿En qué parte vives tú exactamente?'
+        : '¿Por qué zona vives tú?',
+      replyMeaningAr: isFemale
+        ? 'في أي منطقة تعيشين أنتِ تحديداً؟'
+        : 'في أي منطقة تعيش أنت تحديداً؟',
+      replyMeaningEn: 'Which area do you live in exactly?',
+      engineUsed: 'smart-engine',
+      isAlternative,
+    };
+  }
+
+  // 1. Spanish Input (Scenario A: Received message from other person)
   if (detectedLanguage === 'es') {
     let incomingAr = 'رسالة باللغة الإسبانية';
     let spanishReply = '¡Hola! Todo bien por aquí, ¿y tú qué tal?';
@@ -59,19 +81,19 @@ export function generateSmartResponse(
     };
   }
 
-  // 2. Arabic Input (Scenario B: User writes what they want to say)
+  // 2. Arabic Input (Scenario B: User writes what they want to say or coaching instructions)
   if (detectedLanguage === 'ar') {
-    let spanishReply = '¡Hola! Todo genial por aquí, ¿cómo estás?';
+    let spanishReply = '¡Hola! Todo genial por هنا، ¿cómo estás?';
     let replyMeaningAr = 'مرحباً! كل شيء رائع هنا، كيف حالك؟';
 
-    if (clean.includes('اشتقت') || clean.includes('أفتقد') || clean.includes('افتقد')) {
+    if (clean.includes('اشتقت') || clean.includes('أفتقد') || clean.includes('افتقد') || clean.includes('مشتاق')) {
       spanishReply = isAlternative
         ? '¡Te echo un montón de menos! Ojalá nos veamos prontito 🥰'
         : 'Te echo mucho de menos... Me encantaría verte pronto ❤️';
       replyMeaningAr = isAlternative
         ? 'أشتاق إليكِ كثيراً! أتمنى لو نلتقي قريباً 🥰'
         : 'أفتقدكِ كثيراً... يسعدني جداً أن أراكِ قريباً ❤️';
-    } else if (clean.includes('أعتذر') || clean.includes('اعتذر') || clean.includes('متأخر') || clean.includes('آسف')) {
+    } else if (clean.includes('أعتذر') || clean.includes('اعتذر') || clean.includes('متأخر') || clean.includes('آسف') || clean.includes('تأخير')) {
       spanishReply = isAlternative
         ? '¡Perdona de verdad! Había atasco, pero llego en 10 minutos 🙏'
         : '¡Siento la tardanza! Se me complicó una cosa, voy para allá corriendo 🏃‍♂️';
@@ -81,6 +103,9 @@ export function generateSmartResponse(
     } else if (clean.includes('أحبك') || clean.includes('معجب') || clean.includes('جميلة')) {
       spanishReply = 'La verdad es que cada día me gustas más... Eres muy especial para mí ✨';
       replyMeaningAr = 'الحقيقة هي أنكِ تعجبينني أكثر مع كل يوم... أنتِ شخص مميز جداً بالنسبة لي ✨';
+    } else if (clean.includes('خطط') || clean.includes('خطة') || clean.includes('اليوم')) {
+      spanishReply = '¿Qué planes tienes para hoy? ¿Te apetece hacer algo?';
+      replyMeaningAr = 'ما هي خططكِ لليوم؟ هل ترغبين في القيام بشيء ما؟';
     }
 
     return {
@@ -93,8 +118,8 @@ export function generateSmartResponse(
     };
   }
 
-  // 3. English Input (Scenario Q: Question or English instructions to say something)
-  const isQuestion = /^(what|how|why|is\s|does|who|can\syou\sexplain|what\sdoes)/i.test(clean);
+  // 3. English Input (Scenario Q / B: Question or English coaching instructions)
+  const isQuestion = /^(what\s+is\s+she|what\s+is\s+he|what\s+does|how\s+should|can\s+you\s+explain|meaning\s+of)/i.test(clean);
 
   if (isQuestion) {
     return {
@@ -109,15 +134,15 @@ export function generateSmartResponse(
     };
   }
 
-  // English statement / prompt (e.g. "Tell her I live in Madrid too and ask where she is from")
+  // English statement or coaching instruction (e.g. "Tell her I live in Madrid too", "tell her I am busy")
   let spanishReply = '¡Yo también vivo en Madrid! ¿De qué parte eres tú?';
   let replyMeaningAr = 'أنا أيضاً أعيش في مدريد! من أي منطقة أنتِ؟';
   let replyMeaningEn = 'I live in Madrid too! Which part are you from?';
 
-  if (clean.includes('busy') || clean.includes('call you later')) {
-    spanishReply = 'Ahora estoy un poco liado, te escribo en cuanto me desocupe 👍';
-    replyMeaningAr = 'أنا منشغل قليلاً الآن، سأراسلك فور انتهائي 👍';
-    replyMeaningEn = 'I am a bit busy right now, I will text you as soon as I am free 👍';
+  if (clean.includes('busy') || clean.includes('call you later') || clean.includes('work')) {
+    spanishReply = 'Ahora estoy un poco liado con el curro, te escribo en cuanto me desocupe 👍';
+    replyMeaningAr = 'أنا منشغل قليلاً بالعمل الآن، سأراسلك فور انتهائي 👍';
+    replyMeaningEn = 'I am a bit busy with work right now, I will text you as soon as I am free 👍';
   } else if (clean.includes('miss') || clean.includes('miss you')) {
     spanishReply = '¡Te echo de menos! Ojalá podamos vernos pronto ❤️';
     replyMeaningAr = 'أفتقدكِ! أتمنى لو نلتقي قريباً ❤️';
@@ -159,7 +184,6 @@ export function generateSmartVocabulary(spanishText: string): VocabItem[] {
   }
 
   if (list.length === 0) {
-    // Pick 2 main words from the text
     const words = spanishText.split(/\s+/).filter(w => w.length > 4).slice(0, 2);
     for (const w of words) {
       list.push({

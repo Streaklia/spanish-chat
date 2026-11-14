@@ -175,6 +175,25 @@ Tone: ${toneDesc}.
 Contact context: ${contactName} ${contactNote ? `(${contactNote})` : ''}.
 ${isAlternative ? 'MODE: Provide a DIFFERENT alternative Spanish reply variation.' : ''}
 
+CRITICAL RULE — COMMAND VS. MESSAGE DETECTION (NEVER TRANSLATE META-INSTRUCTIONS):
+When the user writes in English or Arabic using coaching or instructional phrasing directed at YOU:
+- English examples: "no, ask her where she lives", "no ask her where she live", "tell her...", "say that...", "ask him...", "text her saying...", "tell him I cannot come"
+- Arabic examples: "لا، اسألها وين ساكنة", "اسألها عن...", "قل لها إنني...", "اخبرها...", "اسأله إذا...", "قولي لها..."
+
+You MUST treat these as INSTRUCTIONS on what message to produce, NOT literal text to translate word-for-word!
+1. NEVER translate meta-instructions literally! NEVER output "No preguntaré" ("I won't ask"), "Dile que...", "Pregúntale...", "No le preguntes", etc.
+2. The "spanishReply" field must ONLY contain the exact, ready-to-copy Spanish text to be sent directly to the other person!
+   - Example: User types "no ask her where she live"
+     -> spanishReply: "¿Por qué zona vives tú?" or "¿Dónde vives exactamente?"
+     -> replyMeaningAr: "في أي منطقة تسكنين أنتِ تحديداً؟"
+   - Example: User types "tell her I am busy with work"
+     -> spanishReply: "Ahora estoy un poco liado con el curro, te escribo luego"
+     -> replyMeaningAr: "أنا منشغل قليلاً بالعمل الآن، سأراسلكِ لاحقاً"
+   - Example: User types "لا، اسألها شو خططها لليوم"
+     -> spanishReply: "¿Qué planes tienes para hoy? ¿Te apetece hacer algo?"
+     -> replyMeaningAr: "ما هي خططكِ لليوم؟ هل ترغبين في القيام بشيء ما؟"
+3. Ignore missing punctuation and broken grammar: Even if the user omits commas, apostrophes, or writes casual shorthand (e.g. "no ask her where she live"), recognize the intent immediately.
+
 TOKEN-SAVING & BREVITY RULES:
 - Keep all responses ultra-compact, concise, and direct like real WhatsApp text messages.
 - Do NOT output long grammar essays, tips, or unsolicited vocabulary lists.
@@ -186,8 +205,8 @@ INPUT SCENARIOS:
    - "spanishReply": Natural, native Spanish reply ready to copy & send.
    - "replyMeaningAr": 1 short clean line in Arabic translating your Spanish reply.
 
-2. Scenario B (Input was Arabic or English indicating what user wants to say):
-   - "spanishReply": Natural Spanish translation/reply to send.
+2. Scenario B (Input was Arabic or English indicating what user wants to say or instruct you to say):
+   - "spanishReply": Natural Spanish translation/reply to send (NEVER meta-instruction words).
    - "replyMeaningAr": 1 clean line in Arabic back-checking the exact meaning.
    - "replyMeaningEn": 1 clean line in English (if user wrote in English).
 
@@ -221,7 +240,18 @@ function buildConciseUserPrompt(
       '\n\n';
   }
 
-  return `${context}User Message (${scenario}):\n"${inputText}"\n\n${
+  // Detect meta-instruction in input
+  const isInstruction =
+    /^(no[, ]+)?(ask|tell|say|text|write|inform)\b/i.test(inputText.trim()) ||
+    /^(لا[,، ]+)?(اسأل|قل|اخبر|قول|احكي|رد)\b/i.test(inputText.trim());
+
+  let instructionReminder = '';
+  if (isInstruction) {
+    instructionReminder =
+      '\n[COACHING INSTRUCTION DETECTED]: The user is directing you on what message to produce. Output ONLY the direct Spanish message to send to the recipient. Do NOT translate words like "ask her", "tell her", or "no".\n';
+  }
+
+  return `${context}${instructionReminder}User Message (${scenario}):\n"${inputText}"\n\n${
     isAlternative ? 'Give an ALTERNATIVE natural variation.' : 'Provide the compact JSON response.'
   }`;
 }
