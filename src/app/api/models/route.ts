@@ -27,16 +27,20 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const defaultRouterModel: FreeModelOption = {
+      id: 'openrouter/free',
+      name: 'Free Models Router (OpenRouter)',
+      provider: 'openrouter',
+    };
+
     if (!res.ok) {
-      // Fallback curated list of known working free models if OpenRouter models endpoint fails
       return NextResponse.json({
         success: true,
         models: [
+          defaultRouterModel,
           { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA: Nemotron 3.5 Lightning (free)', provider: 'openrouter' },
           { id: 'inclusionai/ling-3.2-flash:free', name: 'inclusionAI: Ling 3.2 Flash (free)', provider: 'openrouter' },
           { id: 'google/gemma-4-31b-it:free', name: 'Google: Gemma 4 31B (free)', provider: 'openrouter' },
-          { id: 'liquid/lfm-3-1.7b:free', name: 'LiquidAI: LFM3-1.7B (free)', provider: 'openrouter' },
-          { id: 'particle-ai/particle-1:free', name: 'Particle AI: Particle-1 (free)', provider: 'openrouter' },
         ],
       });
     }
@@ -47,30 +51,35 @@ export async function GET(req: NextRequest) {
     // Filter strictly for 100% free models
     const freeModels: FreeModelOption[] = rawList
       .filter((m) => {
-        const isFreeId = typeof m.id === 'string' && m.id.endsWith(':free');
+        const isFreeId = typeof m.id === 'string' && (m.id.endsWith(':free') || m.id === 'openrouter/free');
         const isZeroPrice =
           m.pricing &&
           (m.pricing.prompt === '0' || m.pricing.prompt === 0) &&
           (m.pricing.completion === '0' || m.pricing.completion === 0);
-        // Exclude music/sound generation models
         const isNotMusic = !m.id.includes('lyria') && !m.id.includes('music');
         return (isFreeId || isZeroPrice) && isNotMusic;
       })
       .map((m) => ({
         id: m.id,
-        name: m.name || m.id,
+        name: m.id === 'openrouter/free' ? 'Free Models Router (OpenRouter)' : (m.name || m.id),
         provider: 'openrouter' as const,
       }));
 
-    return NextResponse.json({ success: true, models: freeModels });
+    // Ensure openrouter/free is at the top of the list
+    const hasRouter = freeModels.some((m) => m.id === 'openrouter/free');
+    const sortedModels = hasRouter
+      ? [defaultRouterModel, ...freeModels.filter((m) => m.id !== 'openrouter/free')]
+      : [defaultRouterModel, ...freeModels];
+
+    return NextResponse.json({ success: true, models: sortedModels });
   } catch (error: any) {
     console.error('Error fetching models:', error);
     return NextResponse.json(
       {
         success: true,
         models: [
+          { id: 'openrouter/free', name: 'Free Models Router (OpenRouter)', provider: 'openrouter' },
           { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA: Nemotron 3.5 Lightning (free)', provider: 'openrouter' },
-          { id: 'inclusionai/ling-3.2-flash:free', name: 'inclusionAI: Ling 3.2 Flash (free)', provider: 'openrouter' },
         ],
       },
       { status: 200 }
@@ -79,22 +88,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const start = Date.now();
   try {
     const body = await req.json();
-    const { provider = 'openrouter', model } = body;
-
-    if (!model) {
-      return NextResponse.json({ success: false, error: 'Model is required' }, { status: 400 });
-    }
-
-    const start = Date.now();
+    const { provider = 'openrouter', model = 'openrouter/free' } = body;
 
     if (provider === 'gemini') {
       const geminiKey = process.env.GEMINI_API_KEY || '';
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
       const res = await fetch(url, {
         method: 'POST',
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(10000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: 'OK' }] }] }),
       });
@@ -116,11 +120,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Test OpenRouter (Free model only)
+    // Test OpenRouter (Free model / openrouter/free)
     const openRouterKey = process.env.OPENROUTER_API_KEY || '';
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(10000),
       headers: {
         Authorization: `Bearer ${openRouterKey}`,
         'Content-Type': 'application/json',
@@ -128,7 +132,7 @@ export async function POST(req: NextRequest) {
         'X-Title': 'ChatBridge ES-AR',
       },
       body: JSON.stringify({
-        model,
+        model: model || 'openrouter/free',
         messages: [{ role: 'user', content: 'Say OK' }],
       }),
     });
@@ -152,10 +156,11 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (error: any) {
+    console.error('Test error:', error);
     return NextResponse.json({
       success: false,
-      latencyMs: 6000,
-      error: `Timeout ✗ (No response within 6s)`,
+      latencyMs: Date.now() - start,
+      error: `Error: ${error?.message || 'Unknown error'}`,
     });
   }
 }

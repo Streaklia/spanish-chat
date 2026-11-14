@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowUp,
   ClipboardPaste,
-  Sparkles,
+  Square,
+  Trash2,
   X
 } from 'lucide-react';
 import { detectLanguage } from '@/lib/language-detector';
@@ -12,14 +13,21 @@ import { detectLanguage } from '@/lib/language-detector';
 interface BottomInputBarProps {
   onSendMessage: (text: string) => void;
   isLoading: boolean;
+  onStopGenerating?: () => void;
+  onClearChat?: () => void;
+  hasMessages?: boolean;
 }
 
 export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   onSendMessage,
   isLoading,
+  onStopGenerating,
+  onClearChat,
+  hasMessages = false,
 }) => {
   const [text, setText] = useState('');
   const [pasteFeedback, setPasteFeedback] = useState(false);
+  const [clearFeedback, setClearFeedback] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const detectedLang = detectLanguage(text);
@@ -47,7 +55,7 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
     }
   };
 
-  const handleClear = () => {
+  const handleClearText = () => {
     setText('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -71,18 +79,44 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
     }
   };
 
+  const handleTriggerClearChat = () => {
+    if (!onClearChat || isLoading) return;
+    onClearChat();
+    setClearFeedback(true);
+    setTimeout(() => setClearFeedback(false), 1400);
+  };
+
   return (
     <div className="sticky bottom-0 z-20 w-full border-t border-slate-800/80 bg-slate-950/90 pb-safe backdrop-blur-xl">
       <div className="mx-auto max-w-2xl px-3 py-2 sm:py-2.5">
-        {/* Subtle Paste notification */}
+        {/* Subtle Paste / Clear Notification */}
         {pasteFeedback && (
           <div className="text-[11px] text-emerald-400 font-semibold pb-1.5 text-center animate-pulse flex items-center justify-center gap-1">
             <span>تم لصق الرسالة من الحافظة! ✓</span>
           </div>
         )}
+        {clearFeedback && (
+          <div className="text-[11px] text-rose-400 font-semibold pb-1.5 text-center animate-fade-in flex items-center justify-center gap-1">
+            <span>تم مسح المحادثة بنجاح ✓</span>
+          </div>
+        )}
 
         {/* Input Pill Container (WhatsApp / ChatGPT floating dock) */}
-        <div className="relative flex items-end gap-2 rounded-2xl border border-slate-800 bg-slate-900/90 p-1.5 shadow-xl transition-all focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20">
+        <div className="relative flex items-end gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/90 p-1.5 shadow-xl transition-all focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20">
+          {/* Quick Direct Clear Chat Button (One-tap delete) */}
+          {hasMessages && (
+            <button
+              type="button"
+              onClick={handleTriggerClearChat}
+              disabled={isLoading}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-850/80 text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition active:scale-95 disabled:opacity-40"
+              title="مسح المحادثة بالكامل بنقرة واحدة (Clear Chat)"
+              aria-label="Clear conversation"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+
           {/* One-Tap Paste Button inside the bar */}
           <button
             type="button"
@@ -109,36 +143,44 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
           />
 
           {/* Clear button if text present */}
-          {text.trim().length > 0 && (
+          {text.trim().length > 0 && !isLoading && (
             <button
               type="button"
-              onClick={handleClear}
+              onClick={handleClearText}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-white transition"
-              title="مسح النص"
+              title="مسح النص المكتوب"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
 
-          {/* Send Button */}
-          <button
-            type="button"
-            disabled={!text.trim() || isLoading}
-            onClick={handleSend}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 ${
-              text.trim() && !isLoading
-                ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 hover:brightness-110 text-white shadow-md shadow-emerald-950/40'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-            }`}
-            title="إرسال"
-            aria-label="Send"
-          >
-            {isLoading ? (
-              <Sparkles className="h-4 w-4 animate-spin text-emerald-400" />
-            ) : (
+          {/* Action Button: Stop Generating (while loading) OR Send Button (idle) */}
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onStopGenerating}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-950/40 transition active:scale-95 animate-pulse"
+              title="إيقاف الرد (Stop Generating)"
+              aria-label="Stop Generating"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!text.trim()}
+              onClick={handleSend}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95 ${
+                text.trim()
+                  ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 hover:brightness-110 text-white shadow-md shadow-emerald-950/40'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              }`}
+              title="إرسال"
+              aria-label="Send"
+            >
               <ArrowUp className="h-4 w-4 stroke-[2.5]" />
-            )}
-          </button>
+            </button>
+          )}
         </div>
       </div>
     </div>

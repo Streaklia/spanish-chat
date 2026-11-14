@@ -1,55 +1,24 @@
 import { AppSettings, ContactThread } from '@/types';
 
-const THREADS_KEY = 'chatbridge_threads_v2';
-const ACTIVE_THREAD_KEY = 'chatbridge_active_thread_id_v2';
-const SETTINGS_KEY = 'chatbridge_settings_v2';
+const THREADS_KEY = 'chatbridge_threads_v3';
+const ACTIVE_THREAD_KEY = 'chatbridge_active_thread_id_v3';
+const SETTINGS_KEY = 'chatbridge_settings_v3';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   engine: 'openrouter',
+  selectedModel: 'openrouter/free',
   tone: 'friendly',
   theme: 'dark',
 };
 
+// Clean slate: Zero pre-filled fake chats
 export const INITIAL_THREADS: ContactThread[] = [
   {
-    id: 'thread-madrid-coworker',
-    name: 'Madrid Coworker',
-    note: 'Coworker from Madrid, male, friendly professional',
+    id: 'chat-initial',
+    name: 'New Chat',
     defaultTone: 'friendly',
-    createdAt: Date.now() - 3600000 * 24,
-    updatedAt: Date.now() - 3600000,
-    messages: [
-      {
-        id: 'msg-seed-1-user',
-        role: 'user',
-        timestamp: Date.now() - 1800000,
-        inputText: 'Hola! Mi día estuvo bien, ¿y el tuyo qué tal?',
-        detectedLanguage: 'es',
-      },
-      {
-        id: 'msg-seed-1-assistant',
-        role: 'assistant',
-        timestamp: Date.now() - 1795000,
-        inputText: 'Hola! Mi día estuvo bien, ¿y el tuyo qué tal?',
-        detectedLanguage: 'es',
-        payload: {
-          scenario: 'A',
-          detectedLanguage: 'es',
-          incomingTranslationAr: 'أهلاً! كان يومي جيداً، وأنت كيف كان يومك؟',
-          spanishReply: '¡Qué bien! El mío también estuvo tranquilo, ya descansando en casa.',
-          replyMeaningAr: 'رائع جداً! ويومي كان هادئاً أيضاً، والآن أستريح في المنزل.',
-          engineUsed: 'openrouter',
-        }
-      }
-    ]
-  },
-  {
-    id: 'thread-insta-friend',
-    name: 'Instagram Friend',
-    note: 'Female, casual & friendly',
-    defaultTone: 'casual',
-    createdAt: Date.now() - 3600000 * 48,
-    updatedAt: Date.now() - 7200000,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
     messages: []
   }
 ];
@@ -63,7 +32,18 @@ export function loadThreads(): ContactThread[] {
       return INITIAL_THREADS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_THREADS;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // Filter out any legacy pre-filled demo threads from older versions
+      const cleaned = parsed.filter(
+        (t) =>
+          t.id !== 'thread-madrid-coworker' &&
+          t.id !== 'thread-instagram-friend' &&
+          t.name !== 'Madrid Coworker' &&
+          t.name !== 'Instagram Friend'
+      );
+      return cleaned.length > 0 ? cleaned : INITIAL_THREADS;
+    }
+    return INITIAL_THREADS;
   } catch (e) {
     return INITIAL_THREADS;
   }
@@ -80,10 +60,17 @@ export function loadActiveThreadId(threads: ContactThread[]): string {
   if (typeof window === 'undefined') return INITIAL_THREADS[0].id;
   try {
     const savedId = localStorage.getItem(ACTIVE_THREAD_KEY);
-    if (savedId && threads.some(t => t.id === savedId)) return savedId;
-    return threads[0]?.id || 'default-thread';
+    if (
+      savedId &&
+      savedId !== 'thread-madrid-coworker' &&
+      savedId !== 'thread-instagram-friend' &&
+      threads.some((t) => t.id === savedId)
+    ) {
+      return savedId;
+    }
+    return threads[0]?.id || INITIAL_THREADS[0].id;
   } catch (e) {
-    return threads[0]?.id || 'default-thread';
+    return threads[0]?.id || INITIAL_THREADS[0].id;
   }
 }
 
@@ -99,7 +86,13 @@ export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      // Ensure openrouter/free is the default
+      selectedModel: parsed.selectedModel || 'openrouter/free',
+    };
   } catch (e) {
     return DEFAULT_SETTINGS;
   }
