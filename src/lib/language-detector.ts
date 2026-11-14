@@ -1,17 +1,23 @@
 import { DetectedLanguage } from '@/types';
 
-// Arabic Unicode ranges including Arabic, Arabic Supplement, Presentation Forms
 const ARABIC_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const SPANISH_SPECIAL_CHARS = /[áéíóúüñ¿¡ÁÉÍÓÚÜÑ]/i;
 
-// Spanish specific diacritics and inverted punctuation
-const SPANISH_CHARS = /[áéíóúüñ¿¡ÁÉÍÓÚÜÑ]/i;
-
-// Common Spanish words
-const SPANISH_COMMON_WORDS = new Set([
+const SPANISH_WORDS = new Set([
   'hola', 'que', 'qué', 'como', 'cómo', 'estas', 'estás', 'bien', 'gracias', 'y', 'tu', 'tú',
-  'dia', 'día', 'mi', 'mi', 'amigo', 'amiga', 'bueno', 'buena', 'si', 'sí', 'no', 'por', 'favor',
+  'dia', 'día', 'mi', 'mí', 'amigo', 'amiga', 'bueno', 'buena', 'si', 'sí', 'no', 'por', 'favor',
   'de', 'la', 'el', 'los', 'las', 'un', 'una', 'con', 'para', 'estoy', 'tengo', 'hacer', 'voy',
-  'donde', 'dónde', 'cuando', 'cuándo', 'guapa', 'guapo', 'te', 'me', 'se', 'nos', 'quiero', 'mucho'
+  'donde', 'dónde', 'cuando', 'cuándo', 'guapa', 'guapo', 'te', 'me', 'se', 'nos', 'quiero', 'mucho',
+  'vale', 'guay', 'curro', 'tío', 'tía', 'quedamos', 'pasa', 'nada', 'luego', 'tarde', 'noche',
+  'estuvo', 'fue', 'genial', 'claro', 'buenos', 'buenas', 'días', 'noches', 'tardes', 'besos'
+]);
+
+const ENGLISH_WORDS = new Set([
+  'the', 'is', 'are', 'was', 'were', 'tell', 'ask', 'her', 'him', 'she', 'he', 'it', 'what', 'how',
+  'where', 'when', 'why', 'can', 'you', 'about', 'say', 'saying', 'talking', 'meet', 'live', 'from',
+  'also', 'too', 'good', 'day', 'yes', 'no', 'please', 'thanks', 'want', 'would', 'like', 'should',
+  'i', 'me', 'my', 'we', 'they', 'them', 'this', 'that', 'with', 'for', 'have', 'had', 'been',
+  'answer', 'reply', 'meaning', 'translate', 'does', 'did', 'love', 'see', 'today', 'tonight'
 ]);
 
 export function detectLanguage(text: string): DetectedLanguage {
@@ -29,30 +35,41 @@ export function detectLanguage(text: string): DetectedLanguage {
     }
   }
 
-  // If there are Arabic characters and they constitute a significant portion
-  if (arabicCharCount > 0 && arabicCharCount >= latinCharCount * 0.3) {
+  // If there are Arabic characters
+  if (arabicCharCount > 0 && arabicCharCount >= latinCharCount * 0.25) {
     return 'ar';
   }
 
-  // Check for Spanish diacritics
-  if (SPANISH_CHARS.test(cleaned)) {
+  // If there are Spanish specific characters (¿, ¡, ñ, etc.)
+  if (SPANISH_SPECIAL_CHARS.test(cleaned)) {
     return 'es';
   }
 
-  // Check common Spanish words
-  const words = cleaned.toLowerCase().split(/[\s,?.!¡¿]+/);
-  let spanishWordHits = 0;
+  // Tokenize words
+  const words = cleaned.toLowerCase().split(/[^a-zA-Záéíóúüñ]+/);
+  let esScore = 0;
+  let enScore = 0;
+
   for (const word of words) {
-    if (SPANISH_COMMON_WORDS.has(word)) {
-      spanishWordHits++;
-    }
+    if (!word) continue;
+    if (SPANISH_WORDS.has(word)) esScore += 2;
+    if (ENGLISH_WORDS.has(word)) enScore += 2;
   }
 
-  if (spanishWordHits > 0 || latinCharCount > 0) {
+  if (esScore > enScore) return 'es';
+  if (enScore > esScore) return 'en';
+
+  // Fallback heuristics: If user wrote in Latin alphabet
+  // Many questions like "What does this mean?" or "Tell her..." will match English
+  if (/^(tell|ask|what|how|why|i\s|can\s|does|is\s)/i.test(cleaned)) {
+    return 'en';
+  }
+
+  if (/^(hola|buenas|que\s|cómo\s|estoy|mi\s)/i.test(cleaned)) {
     return 'es';
   }
 
-  return arabicCharCount > 0 ? 'ar' : 'es';
+  return enScore > 0 ? 'en' : 'es';
 }
 
 export function isRTL(text: string): boolean {

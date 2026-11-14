@@ -2,12 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Send,
-  ClipboardPaste,
-  X,
-  Sparkles,
   ArrowUp,
-  Languages
+  ClipboardPaste,
+  Sparkles,
+  X
 } from 'lucide-react';
 import { detectLanguage } from '@/lib/language-detector';
 
@@ -18,41 +16,34 @@ interface BottomInputBarProps {
 
 export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   onSendMessage,
-  isLoading
+  isLoading,
 }) => {
   const [text, setText] = useState('');
-  const [pasteNotice, setPasteNotice] = useState(false);
+  const [pasteFeedback, setPasteFeedback] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const detectedLang = detectLanguage(text);
 
-  // Auto-resize textarea height up to max
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 110)}px`;
     }
   }, [text]);
 
   const handlePaste = async () => {
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
-        const clipText = await navigator.clipboard.readText();
-        if (clipText) {
-          setText(clipText);
-          setPasteNotice(true);
-          setTimeout(() => setPasteNotice(false), 1500);
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-          }
+        const clip = await navigator.clipboard.readText();
+        if (clip) {
+          setText(clip);
+          setPasteFeedback(true);
+          setTimeout(() => setPasteFeedback(false), 1200);
+          textareaRef.current?.focus();
         }
       }
-    } catch (err) {
-      console.warn('Clipboard read failed or permission denied:', err);
-      // Fallback: prompt or focus textarea
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
+    } catch (e) {
+      textareaRef.current?.focus();
     }
   };
 
@@ -74,7 +65,6 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // On desktop, Enter sends (Shift+Enter makes newline). On mobile, regular Enter can be handled.
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -82,49 +72,25 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 w-full border-t border-slate-800/90 bg-slate-950/95 pb-safe backdrop-blur-md transition-colors dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="mx-auto max-w-2xl px-3 py-2 sm:px-4">
-        {/* Dynamic Context Header: Detection Pill & Quick Hints */}
-        <div className="flex items-center justify-between mb-1.5 px-1 text-[11px]">
-          {/* Detected Language Pill */}
-          <div className="flex items-center gap-1.5">
-            {text.trim() ? (
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold transition ${
-                  detectedLang === 'es'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                }`}
-              >
-                <span>{detectedLang === 'es' ? '🇪🇸 Spanish Message (They said)' : '🇦🇪 Arabic Message (You want to say)'}</span>
-              </span>
-            ) : (
-              <span className="text-slate-400 flex items-center gap-1">
-                <Languages className="h-3 w-3" />
-                الصق رسالة إسبانية أو اكتب ما تريد قوله بالعربية
-              </span>
-            )}
+    <div className="sticky bottom-0 z-20 w-full border-t border-slate-800/80 bg-slate-950/95 pb-safe backdrop-blur-md">
+      <div className="mx-auto max-w-2xl px-3 py-2">
+        {/* Subtle Paste notification */}
+        {pasteFeedback && (
+          <div className="text-[10px] text-emerald-400 font-medium pb-1 text-center animate-pulse">
+            Pasted from clipboard! ✓
           </div>
+        )}
 
-          {/* Paste confirmation flash */}
-          {pasteNotice && (
-            <span className="text-emerald-400 text-[10px] font-bold animate-pulse">
-              تم لصق الرسالة! ✓
-            </span>
-          )}
-        </div>
-
-        {/* Input Container */}
-        <div className="relative flex items-end gap-1.5 rounded-2xl border border-slate-700/80 bg-slate-900/90 p-1.5 shadow-xl focus-within:border-emerald-500/80 focus-within:ring-1 focus-within:ring-emerald-500/30">
-          {/* One-Tap Paste Button */}
+        {/* Input Pill Container (WhatsApp / ChatGPT style) */}
+        <div className="relative flex items-end gap-1.5 rounded-2xl border border-slate-700/80 bg-slate-900/90 p-1.5 shadow-md focus-within:border-emerald-500/70 focus-within:ring-1 focus-within:ring-emerald-500/30">
+          {/* One-Tap Paste Button inside the bar */}
           <button
             type="button"
             onClick={handlePaste}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-300 transition hover:bg-slate-700 hover:text-white active:scale-95 sm:h-11 sm:w-11"
-            title="Paste from WhatsApp / Instagram clipboard"
-            aria-label="Paste message"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition active:scale-95"
+            title="Paste from clipboard"
           >
-            <ClipboardPaste className="h-5 w-5 text-amber-400" />
+            <ClipboardPaste className="h-4 w-4" />
           </button>
 
           {/* Text Area */}
@@ -135,22 +101,21 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             dir={detectedLang === 'ar' ? 'rtl' : 'ltr'}
-            placeholder="Paste Spanish or write in Arabic..."
-            className={`max-h-32 min-h-[40px] flex-1 resize-none bg-transparent py-2 px-1 text-sm text-slate-100 placeholder-slate-400 focus:outline-none leading-relaxed ${
+            placeholder="Paste Spanish, or write in Arabic or English..."
+            className={`max-h-28 min-h-[38px] flex-1 resize-none bg-transparent py-2 px-1 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none leading-relaxed ${
               detectedLang === 'ar' ? 'font-arabic text-right' : 'font-sans text-left'
             }`}
           />
 
-          {/* Clear Button (only when text exists) */}
+          {/* Clear button if text present */}
           {text.trim().length > 0 && (
             <button
               type="button"
               onClick={handleClear}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 hover:text-white transition"
               title="Clear text"
-              aria-label="Clear input"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
 
@@ -159,18 +124,17 @@ export const BottomInputBar: React.FC<BottomInputBarProps> = ({
             type="button"
             disabled={!text.trim() || isLoading}
             onClick={handleSend}
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all sm:h-11 sm:w-11 ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition active:scale-95 ${
               text.trim() && !isLoading
-                ? 'bg-gradient-to-tr from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/25 active:scale-95'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
             }`}
-            title="Send to AI Assistant"
-            aria-label="Send message"
+            title="Send"
           >
             {isLoading ? (
-              <Sparkles className="h-5 w-5 animate-spin text-emerald-400" />
+              <Sparkles className="h-4 w-4 animate-spin text-emerald-400" />
             ) : (
-              <ArrowUp className="h-5 w-5 stroke-[2.5]" />
+              <ArrowUp className="h-4 w-4 stroke-[2.5]" />
             )}
           </button>
         </div>

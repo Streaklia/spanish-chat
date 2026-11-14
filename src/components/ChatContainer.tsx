@@ -1,17 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import {
-  Sparkles,
-  MessageSquare,
-  ArrowDown,
-  Languages,
-  Zap,
-  Heart,
-  Briefcase,
-  Smile
-} from 'lucide-react';
-import { ChatMessage, ContactThread, SpanishDialect } from '@/types';
+import { Sparkles, MessageCircle } from 'lucide-react';
+import { ChatMessage, ContactThread } from '@/types';
 import { ResponseCard } from './ResponseCard';
 
 interface ChatContainerProps {
@@ -23,31 +14,11 @@ interface ChatContainerProps {
   loadingAlternativeId?: string | null;
 }
 
-const STARTER_PROMPTS = [
-  {
-    type: 'es',
-    label: '🇪🇸 ما قالوه (رسالة إسبانية واردة)',
-    text: 'Mi día estuvo bien, ¿y el tuyo qué tal?',
-    sub: 'سؤال عن اليوم والرد المناسب'
-  },
-  {
-    type: 'es',
-    label: '🇪🇸 ما قالوه (غزل / ودود)',
-    text: '¡Hola guapa! ¿Tienes algún plan para esta tarde? 😊',
-    sub: 'اقتراح خروج وسياق ودود'
-  },
-  {
-    type: 'ar',
-    label: '🇦🇪 أردت قوله (اشتياق وعاطفة)',
-    text: 'أريد أن أقول لها إنني أفتقدكِ كثيراً وأتمنى رؤيتكِ قريباً ❤️',
-    sub: 'ترجمة عفوية لطيفة للواتساب'
-  },
-  {
-    type: 'ar',
-    label: '🇦🇪 أردت قوله (اعتذار عن تأخير)',
-    text: 'أعتذر عن التأخير، كنت عالقاً في زحمة السير وسأصل خلال 10 دقائق 🙏',
-    sub: 'اعتذار طبيعي كأهل البلد'
-  }
+const QUICK_STARTERS = [
+  { text: 'Hola! Mi día estuvo bien, ¿y el tuyo qué tal?', label: '🇪🇸 Paste incoming Spanish' },
+  { text: 'أريد أن أقول لها إنني أفتقدكِ وأتمنى رؤيتكِ قريباً', label: '🇦🇪 Say something in Arabic' },
+  { text: 'Tell her I live in Madrid too and ask where she lives', label: '🇬🇧 Instruct in English' },
+  { text: 'What is she talking about?', label: '❓ Ask a question' }
 ];
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -60,76 +31,43 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 }) => {
   const scrollEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    scrollEndRef.current?.scrollIntoView({ behavior });
-  };
-
   useEffect(() => {
-    scrollToBottom('smooth');
+    scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 space-y-5">
-      <div className="mx-auto max-w-2xl space-y-5">
-        {/* Empty State / Welcome Guide */}
+    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+      <div className="mx-auto max-w-2xl space-y-3.5">
+        {/* Minimalist Empty State */}
         {messages.length === 0 && (
-          <div className="rounded-2xl border border-slate-800/90 bg-gradient-to-b from-slate-900/80 to-slate-950 p-5 text-center shadow-xl">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-emerald-500 shadow-lg shadow-emerald-500/20">
-              <Languages className="h-6 w-6 text-white" />
+          <div className="py-12 px-4 text-center space-y-4 animate-fade-in">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-emerald-500 shadow-sm">
+              <MessageCircle className="h-5 w-5 text-white" />
             </div>
 
-            <h2 className="text-lg font-bold text-slate-100">
-              مرحباً بك في ChatBridge ES-AR!
-            </h2>
-            <p className="mx-auto mt-1 max-w-md text-xs text-slate-400 leading-relaxed">
-              مساعدك الذكي للتحدث بالإسبانية على واتساب وإنستغرام كأنك من أهل البلد، مع تعلم المفردات تلقائياً.
-            </p>
-
-            {/* Quick explanation of 2 modes */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-right">
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                <span className="text-xs font-bold text-amber-300 block mb-1">
-                  1️⃣ السيناريو (أ): وصلتك رسالة إسبانية
-                </span>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  الصق رسالتهم ⬅️ سيفهم الذكاء الاصطناعي ما قالوه، ويترجمه للعربية، ويقترح رداً إسبانياً طبيعياً مع معناه ومفرداته.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-                <span className="text-xs font-bold text-emerald-300 block mb-1">
-                  2️⃣ السيناريو (ب): تريد كتابة رد بالعربية
-                </span>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  اكتب ما يدور في بالك بالعربية ⬅️ سيعطيك صياغة إسبانية عفوية غير حرفية تناسب واتساب تماماً، مع شرح المفردات.
-                </p>
-              </div>
+            <div className="space-y-1">
+              <h2 className="text-sm font-bold text-slate-100">
+                ChatBridge ES-AR • {activeThread.name}
+              </h2>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+                الصق رسالة إسبانية وصلتك، أو اكتب ما تريد قوله بالعربية أو الإنجليزية للرد السريع.
+              </p>
             </div>
 
-            {/* Starter Prompt Chips */}
-            <div className="mt-5 text-right">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
-                جرب الآن بضغطة واحدة (Starter Prompts):
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {STARTER_PROMPTS.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => onSendMessage(prompt.text)}
-                    className="flex flex-col items-start rounded-xl border border-slate-800 bg-slate-900/90 p-2.5 text-right transition hover:border-emerald-500/50 hover:bg-slate-850 active:scale-[0.98]"
-                  >
-                    <span className="text-[10px] font-bold text-emerald-400 mb-0.5">
-                      {prompt.label}
-                    </span>
-                    <span className="text-xs text-slate-200 font-medium">
-                      &quot;{prompt.text}&quot;
-                    </span>
-                    <span className="text-[10px] text-slate-400 mt-1">
-                      {prompt.sub}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            {/* Quick Starters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-md mx-auto pt-2 text-left">
+              {QUICK_STARTERS.map((s, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onSendMessage(s.text)}
+                  className="rounded-xl border border-slate-800 bg-slate-900/60 p-2.5 text-xs text-slate-300 hover:border-emerald-500/50 hover:bg-slate-850 hover:text-white transition active:scale-[0.98]"
+                >
+                  <span className="block text-[10px] text-emerald-400 font-semibold mb-0.5">
+                    {s.label}
+                  </span>
+                  <span className="line-clamp-1 italic text-slate-400">&quot;{s.text}&quot;</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -137,41 +75,22 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         {/* Message Thread */}
         {messages.map((message) => {
           if (message.role === 'user') {
-            const isEs = message.detectedLanguage === 'es';
+            const isAr = message.detectedLanguage === 'ar';
             return (
               <div
                 key={message.id}
                 className="flex flex-col items-end space-y-1 animate-slide-up"
               >
-                {/* User Bubble Label */}
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 px-1">
-                  <span
-                    className={`rounded-full px-1.5 py-0.2 font-semibold ${
-                      isEs
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}
-                  >
-                    {isEs ? '🇪🇸 رسالة إسبانية واردة (They said)' : '🇦🇪 أردت قوله (You want to say)'}
-                  </span>
-                  <span>
-                    {new Date(message.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-
-                {/* User Message Bubble */}
+                {/* User Message Bubble (WhatsApp style) */}
                 <div
-                  dir={isEs ? 'ltr' : 'rtl'}
-                  className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 shadow-md ${
-                    isEs
-                      ? 'rounded-tr-sm bg-gradient-to-tr from-amber-600/30 to-amber-700/20 border border-amber-500/30 text-amber-50 font-sans'
-                      : 'rounded-tl-sm bg-gradient-to-tr from-emerald-600/40 to-teal-700/30 border border-emerald-500/30 text-emerald-50 font-arabic'
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-xs sm:text-sm shadow-sm ${
+                    isAr
+                      ? 'rounded-tl-xs bg-emerald-600 text-white font-arabic text-right'
+                      : 'rounded-tr-xs bg-slate-800 text-slate-100 font-sans text-left'
                   }`}
                 >
-                  <p className="text-sm sm:text-base leading-relaxed break-words whitespace-pre-wrap">
+                  <p className="leading-relaxed break-words whitespace-pre-wrap">
                     {message.inputText}
                   </p>
                 </div>
@@ -182,10 +101,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
           // Assistant Response Card
           if (message.role === 'assistant' && message.payload) {
             return (
-              <div key={message.id} className="animate-slide-up">
+              <div key={message.id} className="flex justify-start animate-slide-up">
                 <ResponseCard
                   payload={message.payload}
-                  dialect={activeThread.dialect}
                   isGeneratingAlternative={loadingAlternativeId === message.id}
                   onGenerateAlternative={() =>
                     onGenerateAlternative(message.id, message.inputText)
@@ -200,23 +118,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 
         {/* Loading Indicator */}
         {isLoading && (
-          <div className="w-full rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-xl backdrop-blur-md animate-pulse">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-emerald-400 animate-spin" />
-              <span className="text-xs font-semibold text-emerald-400">
-                جاري تحليل السياق واللهجة وتجهيز الرد... (Analyzing context & tone)
-              </span>
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 w-3/4 rounded bg-slate-800" />
-              <div className="h-10 w-full rounded-xl bg-slate-800/80" />
-              <div className="h-4 w-1/2 rounded bg-slate-800" />
+          <div className="flex justify-start">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/80 px-3.5 py-2 text-xs text-emerald-400 shadow-sm animate-pulse">
+              <Sparkles className="h-3.5 w-3.5 animate-spin" />
+              <span>جاري صياغة الرد الإسباني المناسب...</span>
             </div>
           </div>
         )}
 
-        {/* Auto Scroll Anchor */}
-        <div ref={scrollEndRef} className="h-2" />
+        <div ref={scrollEndRef} className="h-1" />
       </div>
     </div>
   );

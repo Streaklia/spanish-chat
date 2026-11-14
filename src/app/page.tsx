@@ -7,7 +7,6 @@ import {
   ChatMessage,
   ContactThread,
   ConversationTone,
-  SpanishDialect,
   AssistantResponsePayload
 } from '@/types';
 import {
@@ -22,7 +21,6 @@ import {
 } from '@/lib/storage';
 import { detectLanguage } from '@/lib/language-detector';
 import { Header } from '@/components/Header';
-import { TopControlBar } from '@/components/TopControlBar';
 import { ChatContainer } from '@/components/ChatContainer';
 import { BottomInputBar } from '@/components/BottomInputBar';
 import { ContactsDrawer } from '@/components/ContactsDrawer';
@@ -40,7 +38,6 @@ export default function HomePage() {
   const [isContactsOpen, setIsContactsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Initialize from localStorage on mount
   useEffect(() => {
     setIsClient(true);
     const loadedThreads = loadThreads();
@@ -51,7 +48,6 @@ export default function HomePage() {
     setSettings(loadedSettings);
     setActiveThreadId(loadedActiveId);
 
-    // Apply theme
     if (loadedSettings.theme === 'light') {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
@@ -61,42 +57,26 @@ export default function HomePage() {
     }
   }, []);
 
-  // Save changes
   useEffect(() => {
-    if (isClient) {
-      saveThreads(threads);
-    }
+    if (isClient) saveThreads(threads);
   }, [threads, isClient]);
 
   useEffect(() => {
-    if (isClient) {
-      saveActiveThreadId(activeThreadId);
-    }
+    if (isClient) saveActiveThreadId(activeThreadId);
   }, [activeThreadId, isClient]);
 
   useEffect(() => {
-    if (isClient) {
-      saveSettings(settings);
-    }
+    if (isClient) saveSettings(settings);
   }, [settings, isClient]);
 
-  // Current active thread
   const activeThread =
     threads.find((t) => t.id === activeThreadId) ||
     threads[0] ||
     INITIAL_THREADS[0];
 
-  // Handlers for Top Control Bar
   const handleUpdateThreadNote = (note: string) => {
     setThreads((prev) =>
       prev.map((t) => (t.id === activeThread.id ? { ...t, note, updatedAt: Date.now() } : t))
-    );
-  };
-
-  const handleChangeDialect = (dialect: SpanishDialect) => {
-    setSettings((prev) => ({ ...prev, dialect }));
-    setThreads((prev) =>
-      prev.map((t) => (t.id === activeThread.id ? { ...t, dialect, updatedAt: Date.now() } : t))
     );
   };
 
@@ -123,11 +103,12 @@ export default function HomePage() {
     }
   };
 
-  // Chat Actions: Send Message (Scenario A or Scenario B)
+  // Chat message sending
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
 
     const detected = detectLanguage(text);
+    const lang = detected === 'unknown' ? 'es' : detected;
     const userMsgId = `msg-${Date.now()}-user`;
     const assistantMsgId = `msg-${Date.now()}-assistant`;
 
@@ -136,10 +117,9 @@ export default function HomePage() {
       role: 'user',
       timestamp: Date.now(),
       inputText: text.trim(),
-      detectedLanguage: detected === 'ar' ? 'ar' : 'es',
+      detectedLanguage: lang,
     };
 
-    // Add user message to state immediately
     const updatedMessages = [...activeThread.messages, userMessage];
     setThreads((prev) =>
       prev.map((t) =>
@@ -152,7 +132,6 @@ export default function HomePage() {
     setIsLoading(true);
 
     try {
-      // Build history for context (last 12 messages)
       const historyContext = updatedMessages.slice(-12).map((m) => ({
         role: m.role,
         content: m.role === 'user' ? m.inputText : m.payload?.spanishReply || '',
@@ -162,8 +141,8 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'chat',
           inputText: text.trim(),
-          dialect: activeThread.dialect || settings.dialect,
           tone: activeThread.defaultTone || settings.tone,
           engine: settings.engine,
           contactName: activeThread.name,
@@ -178,16 +157,14 @@ export default function HomePage() {
       const json = await res.json();
       const payload: AssistantResponsePayload = json?.data;
 
-      if (!payload) {
-        throw new Error(json?.error || 'Failed to generate response');
-      }
+      if (!payload) throw new Error('Failed to generate response');
 
       const assistantMessage: ChatMessage = {
         id: assistantMsgId,
         role: 'assistant',
         timestamp: Date.now(),
         inputText: text.trim(),
-        detectedLanguage: detected === 'ar' ? 'ar' : 'es',
+        detectedLanguage: lang,
         payload,
       };
 
@@ -198,32 +175,20 @@ export default function HomePage() {
             : t
         )
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error generating reply:', err);
-      // Fallback assistant error card
       const fallbackAssistantMessage: ChatMessage = {
         id: assistantMsgId,
         role: 'assistant',
         timestamp: Date.now(),
         inputText: text.trim(),
-        detectedLanguage: detected === 'ar' ? 'ar' : 'es',
+        detectedLanguage: lang,
         payload: {
-          scenario: detected === 'es' ? 'A' : 'B',
-          detectedLanguage: detected === 'ar' ? 'ar' : 'es',
-          incomingTranslationAr:
-            detected === 'es' ? 'حدث تأخير في الخادم، يرجى المحاولة ثانية.' : undefined,
-          spanishReply:
-            detected === 'es'
-              ? '¡Hola! Todo bien por aquí, ¿y contigo?'
-              : '¡Hola! Todo genial por aquí, ¿cómo estás?',
-          replyMeaningAr: 'مرحباً! كل شيء على ما يرام هنا، وأنت كيف حالك؟',
-          vocabulary: [
-            {
-              spanish: 'todo bien',
-              arabic: 'كل شيء على ما يرام',
-              tip: 'رد كلاسيكي ودود يناسب جميع المحادثات',
-            },
-          ],
+          scenario: lang === 'es' ? 'A' : 'B',
+          detectedLanguage: lang,
+          incomingTranslationAr: lang === 'es' ? 'رسالة إسبانية واردة' : undefined,
+          spanishReply: lang === 'es' ? '¡Hola! Todo bien por aquí, ¿y tú?' : '¡Hola! Todo genial por aquí 👍',
+          replyMeaningAr: 'أهلاً! كل شيء على ما يرام هنا، وأنت؟',
           engineUsed: 'smart-engine',
         },
       };
@@ -240,7 +205,7 @@ export default function HomePage() {
     }
   };
 
-  // Scenario C: Another Option Generator
+  // Scenario C: Another Option
   const handleGenerateAlternative = async (messageId: string, inputText: string) => {
     setLoadingAlternativeId(messageId);
 
@@ -254,14 +219,14 @@ export default function HomePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'chat',
           inputText,
-          dialect: activeThread.dialect || settings.dialect,
           tone: activeThread.defaultTone || settings.tone,
           engine: settings.engine,
           contactName: activeThread.name,
           contactNote: activeThread.note,
           history: historyContext,
-          isAlternative: true, // Trigger Scenario C
+          isAlternative: true,
           customGeminiKey: settings.customGeminiKey,
           customOpenRouterKey: settings.customOpenRouterKey,
         }),
@@ -286,20 +251,19 @@ export default function HomePage() {
           })
         );
       }
-    } catch (err) {
-      console.error('Failed to generate alternative option', err);
+    } catch (e) {
+      console.error('Alternative error:', e);
     } finally {
       setLoadingAlternativeId(null);
     }
   };
 
-  // Contacts Management Handlers
-  const handleCreateThread = (name: string, note?: string, dialect?: SpanishDialect) => {
+  // Contacts handlers
+  const handleCreateThread = (name: string, note?: string) => {
     const newThread: ContactThread = {
       id: `thread-${Date.now()}`,
       name,
       note: note || '',
-      dialect: dialect || settings.dialect,
       defaultTone: settings.tone,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -316,9 +280,7 @@ export default function HomePage() {
       setActiveThreadId(INITIAL_THREADS[0].id);
     } else {
       setThreads(remaining);
-      if (activeThreadId === id) {
-        setActiveThreadId(remaining[0].id);
-      }
+      if (activeThreadId === id) setActiveThreadId(remaining[0].id);
     }
   };
 
@@ -328,16 +290,9 @@ export default function HomePage() {
     );
   };
 
-  const handleClearAllData = () => {
-    localStorage.clear();
-    setThreads(INITIAL_THREADS);
-    setActiveThreadId(INITIAL_THREADS[0].id);
-    setSettings(DEFAULT_SETTINGS);
-  };
-
   return (
     <main className="flex h-[100dvh] flex-col overflow-hidden bg-[#090d16] text-slate-100 selection:bg-emerald-500 selection:text-slate-950">
-      {/* 1. Header with brand, switcher trigger, theme, settings */}
+      {/* 1. Slim Single-Row Minimalist Header */}
       <Header
         activeThread={activeThread}
         onOpenContacts={() => setIsContactsOpen(true)}
@@ -347,19 +302,7 @@ export default function HomePage() {
         engine={settings.engine}
       />
 
-      {/* 2. Top Control & Context Bar (Collapsible, dialect, tone, engine, notes) */}
-      <TopControlBar
-        activeThread={activeThread}
-        onUpdateThreadNote={handleUpdateThreadNote}
-        dialect={activeThread.dialect || settings.dialect}
-        onChangeDialect={handleChangeDialect}
-        engine={settings.engine}
-        onChangeEngine={handleChangeEngine}
-        tone={activeThread.defaultTone || settings.tone}
-        onChangeTone={handleChangeTone}
-      />
-
-      {/* 3. Main Chat Container (Messages, Response Cards, Auto-scroll) */}
+      {/* 2. 90% Screen Dedicated to Pure Conversation */}
       <ChatContainer
         messages={activeThread.messages}
         activeThread={activeThread}
@@ -369,7 +312,7 @@ export default function HomePage() {
         loadingAlternativeId={loadingAlternativeId}
       />
 
-      {/* 4. Frictionless Bottom Input Bar (Paste button, auto-expand, clear, send) */}
+      {/* 3. Ultra-Slim Frictionless Bottom Input Bar */}
       <BottomInputBar
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
@@ -387,13 +330,16 @@ export default function HomePage() {
         onUpdateThread={handleUpdateThread}
       />
 
-      {/* Settings Modal (API Keys, PWA Instructions, Fallback status) */}
+      {/* Compact Settings Popover / Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
+        activeThread={activeThread}
+        onUpdateThreadNote={handleUpdateThreadNote}
+        onChangeEngine={handleChangeEngine}
+        onChangeTone={handleChangeTone}
         onSaveSettings={(newSettings) => setSettings(newSettings)}
-        onClearAllData={handleClearAllData}
       />
     </main>
   );

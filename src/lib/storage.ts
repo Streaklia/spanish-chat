@@ -1,12 +1,11 @@
-import { AppSettings, ContactThread, SpanishDialect, ConversationTone } from '@/types';
+import { AppSettings, ContactThread } from '@/types';
 
-const THREADS_KEY = 'chatbridge_threads_v1';
-const ACTIVE_THREAD_KEY = 'chatbridge_active_thread_id_v1';
-const SETTINGS_KEY = 'chatbridge_settings_v1';
+const THREADS_KEY = 'chatbridge_threads_v2';
+const ACTIVE_THREAD_KEY = 'chatbridge_active_thread_id_v2';
+const SETTINGS_KEY = 'chatbridge_settings_v2';
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  engine: 'gemini',
-  dialect: 'spain',
+  engine: 'openrouter',
   tone: 'friendly',
   theme: 'dark',
 };
@@ -15,8 +14,7 @@ export const INITIAL_THREADS: ContactThread[] = [
   {
     id: 'thread-madrid-coworker',
     name: 'Madrid Coworker',
-    note: 'Coworker from Madrid, male, professional but friendly context.',
-    dialect: 'spain',
+    note: 'Coworker from Madrid, male, friendly professional',
     defaultTone: 'friendly',
     createdAt: Date.now() - 3600000 * 24,
     updatedAt: Date.now() - 3600000,
@@ -25,38 +23,31 @@ export const INITIAL_THREADS: ContactThread[] = [
         id: 'msg-seed-1-user',
         role: 'user',
         timestamp: Date.now() - 1800000,
-        inputText: 'Hola! Mi día estuvo bien, gracias por preguntar. ¿Qué tal el curro hoy?',
+        inputText: 'Hola! Mi día estuvo bien, ¿y el tuyo qué tal?',
         detectedLanguage: 'es',
       },
       {
         id: 'msg-seed-1-assistant',
         role: 'assistant',
         timestamp: Date.now() - 1795000,
-        inputText: 'Hola! Mi día estuvo bien, gracias por preguntar. ¿Qué tal el curro hoy?',
+        inputText: 'Hola! Mi día estuvo bien, ¿y el tuyo qué tal?',
         detectedLanguage: 'es',
         payload: {
           scenario: 'A',
           detectedLanguage: 'es',
-          incomingTranslationAr: 'أهلاً! كان يومي جيداً، شكراً على سؤالك. كيف كان العمل اليوم؟',
-          spanishReply: '¡Qué bueno! Por aquí el curro bastante bien, ya cerrando unos temas para descansar.',
-          replyMeaningAr: 'جميل جداً! هنا العمل يسير بشكل جيد تماماً، وأنا الآن أنهي بعض المهام لأرتاح.',
-          vocabulary: [
-            { spanish: 'curro', arabic: 'العمل / الشغل', tip: 'كلمة عامية دارجة جداً في إسبانيا مرادفة لـ trabajo' },
-            { spanish: 'bastante bien', arabic: 'جيد تماماً / على ما يرام', tip: 'تعبير متكرر في الإجابات الودية' },
-            { spanish: 'cerrando unos temas', arabic: 'إنهاء بعض الملفات أو المواضيع', tip: 'تعبير مجازي شائع في بيئة العمل الإسبانية' }
-          ],
-          culturalTip: 'في إسبانيا كلمة "curro" شائعة ومقبولة جداً بين الزملاء المقربين في العمل بدلاً من "trabajo".',
-          engineUsed: 'smart-engine'
+          incomingTranslationAr: 'أهلاً! كان يومي جيداً، وأنت كيف كان يومك؟',
+          spanishReply: '¡Qué bien! El mío también estuvo tranquilo, ya descansando en casa.',
+          replyMeaningAr: 'رائع جداً! ويومي كان هادئاً أيضاً، والآن أستريح في المنزل.',
+          engineUsed: 'openrouter',
         }
       }
     ]
   },
   {
     id: 'thread-insta-friend',
-    name: 'Instagram Crush',
-    note: 'Crush from Colombia / LatAm, female, romantic & warm context.',
-    dialect: 'latam',
-    defaultTone: 'flirty',
+    name: 'Instagram Friend',
+    note: 'Female, casual & friendly',
+    defaultTone: 'casual',
     createdAt: Date.now() - 3600000 * 48,
     updatedAt: Date.now() - 7200000,
     messages: []
@@ -74,7 +65,6 @@ export function loadThreads(): ContactThread[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_THREADS;
   } catch (e) {
-    console.error('Error loading threads from localStorage', e);
     return INITIAL_THREADS;
   }
 }
@@ -83,18 +73,14 @@ export function saveThreads(threads: ContactThread[]) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(THREADS_KEY, JSON.stringify(threads));
-  } catch (e) {
-    console.error('Error saving threads to localStorage', e);
-  }
+  } catch (e) {}
 }
 
 export function loadActiveThreadId(threads: ContactThread[]): string {
   if (typeof window === 'undefined') return INITIAL_THREADS[0].id;
   try {
     const savedId = localStorage.getItem(ACTIVE_THREAD_KEY);
-    if (savedId && threads.some(t => t.id === savedId)) {
-      return savedId;
-    }
+    if (savedId && threads.some(t => t.id === savedId)) return savedId;
     return threads[0]?.id || 'default-thread';
   } catch (e) {
     return threads[0]?.id || 'default-thread';
@@ -105,9 +91,7 @@ export function saveActiveThreadId(id: string) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(ACTIVE_THREAD_KEY, id);
-  } catch (e) {
-    console.error('Error saving active thread id', e);
-  }
+  } catch (e) {}
 }
 
 export function loadSettings(): AppSettings {
@@ -125,7 +109,5 @@ export function saveSettings(settings: AppSettings) {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch (e) {
-    console.error('Error saving settings to localStorage', e);
-  }
+  } catch (e) {}
 }

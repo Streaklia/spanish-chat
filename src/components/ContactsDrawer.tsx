@@ -9,11 +9,9 @@ import {
   Check,
   User,
   MessageSquare,
-  Globe2,
-  ChevronRight,
   Sparkles
 } from 'lucide-react';
-import { ContactThread, SpanishDialect, ConversationTone } from '@/types';
+import { ContactThread } from '@/types';
 
 interface ContactsDrawerProps {
   isOpen: boolean;
@@ -21,7 +19,7 @@ interface ContactsDrawerProps {
   threads: ContactThread[];
   activeThreadId: string;
   onSelectThread: (id: string) => void;
-  onCreateThread: (name: string, note?: string, dialect?: SpanishDialect) => void;
+  onCreateThread: (name: string, note?: string) => void;
   onDeleteThread: (id: string) => void;
   onUpdateThread: (id: string, updates: Partial<ContactThread>) => void;
 }
@@ -39,7 +37,6 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [newDialect, setNewDialect] = useState<SpanishDialect>('spain');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -51,13 +48,12 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
     setIsCreating(true);
     setNewName('');
     setNewNote('');
-    setNewDialect('spain');
   };
 
   const handleSaveCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    onCreateThread(newName.trim(), newNote.trim(), newDialect);
+    onCreateThread(newName.trim(), newNote.trim());
     setIsCreating(false);
   };
 
@@ -75,120 +71,83 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="flex h-full w-full max-w-md flex-col bg-slate-950 border-l border-slate-800 shadow-2xl animate-slide-up sm:animate-none">
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 p-4">
+      <div className="flex h-full w-full max-w-sm flex-col bg-slate-950 border-l border-slate-800 shadow-2xl animate-slide-up sm:animate-none">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 p-3.5">
           <div className="flex items-center gap-2">
-            <User className="h-5 w-5 text-emerald-400" />
-            <h2 className="text-base font-bold text-slate-100">
-              جهات الاتصال والمحادثات (Chat Threads)
+            <User className="h-4 w-4 text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-100">
+              المحادثات (Chats)
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Create New Thread Button */}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
           {!isCreating ? (
             <button
               onClick={handleStartCreate}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-emerald-500/50 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-emerald-500/50 bg-emerald-500/10 py-2.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 transition"
             >
               <Plus className="h-4 w-4" />
-              <span>إضافة شخص / محادثة جديدة (Add Contact)</span>
+              <span>محادثة جديدة (New Chat)</span>
             </button>
           ) : (
-            /* Creation Form */
-            <form onSubmit={handleSaveCreate} className="rounded-xl border border-slate-800 bg-slate-900 p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-200">محادثة جديدة</span>
+            <form onSubmit={handleSaveCreate} className="rounded-xl border border-slate-800 bg-slate-900 p-3 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-200">إضافة محادثة</span>
                 <button
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-slate-400 hover:text-white"
                 >
                   إلغاء
                 </button>
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">اسم الشخص أو المحادثة *</label>
+                <label className="block text-[10px] text-slate-400 mb-1">اسم الشخص أو المحادثة *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Madrid Coworker, Crush, Carlos..."
+                  placeholder="e.g. Madrid Friend, Crush, Carlos..."
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">
-                  ملاحظة السياق والجنس (Context & Gender Note)
+                <label className="block text-[10px] text-slate-400 mb-1">
+                  ملاحظة السياق والجنس (Context Note)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Female, met on Instagram, romantic tone, lives in Valencia"
+                  placeholder="e.g. Female, Instagram friend, romantic vibe"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  تساعد الذكاء الاصطناعي على ضبط قواعد التذكير والتأنيث بدقة 100%.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-[11px] text-slate-400 mb-1">اللهجة الإسبانية المفضلة</label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setNewDialect('spain')}
-                    className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition ${
-                      newDialect === 'spain'
-                        ? 'border-amber-500 bg-amber-500/20 text-amber-300'
-                        : 'border-slate-800 bg-slate-950 text-slate-400'
-                    }`}
-                  >
-                    🇪🇸 Spain (إسبانيا)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewDialect('latam')}
-                    className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition ${
-                      newDialect === 'latam'
-                        ? 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                        : 'border-slate-800 bg-slate-950 text-slate-400'
-                    }`}
-                  >
-                    🌎 LatAm (أمريكا اللاتينية)
-                  </button>
-                </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition"
+                className="w-full rounded-lg bg-emerald-600 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 transition"
               >
-                حفظ وإنشاء المحادثة
+                إنشاء المحادثة
               </button>
             </form>
           )}
 
-          {/* List of Existing Threads */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block px-1">
-              المحادثات المحفوظة ({threads.length})
-            </span>
-
+          {/* Threads list */}
+          <div className="space-y-1.5">
             {threads.map((thread) => {
               const isActive = thread.id === activeThreadId;
               const isEditing = editingId === thread.id;
@@ -196,10 +155,10 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
               return (
                 <div
                   key={thread.id}
-                  className={`group relative rounded-xl border p-3 transition ${
+                  className={`rounded-xl border p-2.5 transition ${
                     isActive
-                      ? 'border-emerald-500/60 bg-emerald-950/20 shadow-md'
-                      : 'border-slate-800/80 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900'
+                      ? 'border-emerald-500/60 bg-emerald-950/20'
+                      : 'border-slate-800/80 bg-slate-900/60 hover:bg-slate-900'
                   }`}
                 >
                   {isEditing ? (
@@ -214,7 +173,7 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
                         type="text"
                         value={editNote}
                         onChange={(e) => setEditNote(e.target.value)}
-                        placeholder="Context note / gender / relationship"
+                        placeholder="Context note"
                         className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white"
                       />
                       <div className="flex gap-2 justify-end">
@@ -233,63 +192,50 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      {/* Top: Name & Badges */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className="flex-1 cursor-pointer"
-                          onClick={() => {
-                            onSelectThread(thread.id);
-                            onClose();
-                          }}
+                    <div className="flex items-center justify-between gap-2">
+                      <div
+                        className="flex-1 cursor-pointer truncate"
+                        onClick={() => {
+                          onSelectThread(thread.id);
+                          onClose();
+                        }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-100 text-xs truncate">
+                            {thread.name}
+                          </span>
+                          {isActive && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          )}
+                        </div>
+                        {thread.note && (
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                            {thread.note}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleStartEdit(thread)}
+                          className="p-1 text-slate-400 hover:text-white"
+                          title="Edit"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-100 text-sm">
-                              {thread.name}
-                            </span>
-                            {isActive && (
-                              <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-400">
-                                نشطة
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-                            <span>{thread.dialect === 'spain' ? '🇪🇸 Spain' : '🌎 LatAm'}</span>
-                            <span>•</span>
-                            <span>{thread.messages.length} رسالة</span>
-                          </div>
-
-                          {thread.note && (
-                            <p className="mt-1.5 text-[11px] text-slate-400 italic line-clamp-2">
-                              📝 {thread.note}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                        {threads.length > 1 && (
                           <button
-                            onClick={() => handleStartEdit(thread)}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                            title="Edit Contact"
+                            onClick={() => {
+                              if (confirm(`حذف محادثة "${thread.name}"؟`)) {
+                                onDeleteThread(thread.id);
+                              }
+                            }}
+                            className="p-1 text-slate-400 hover:text-rose-400"
+                            title="Delete"
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
-                          {threads.length > 1 && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`هل أنت متأكد من حذف محادثة "${thread.name}"؟`)) {
-                                  onDeleteThread(thread.id);
-                                }
-                              }}
-                              className="rounded p-1 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400"
-                              title="Delete Thread"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -297,11 +243,6 @@ export const ContactsDrawer: React.FC<ContactsDrawerProps> = ({
               );
             })}
           </div>
-        </div>
-
-        {/* Drawer Footer */}
-        <div className="border-t border-slate-800 p-3 bg-slate-900/60 text-center text-xs text-slate-400">
-          يتم حفظ جميع جهات الاتصال والملاحظات بأمان محلياً في جهازك.
         </div>
       </div>
     </div>
