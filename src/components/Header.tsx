@@ -46,9 +46,13 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="mx-auto flex h-12 max-w-2xl items-center justify-between px-3">
         {/* Left Side: Brand, Active Thread / Incognito Switcher, Settings Gear */}
         <div className="flex items-center gap-2">
-          {/* Minimalist Logo Badge */}
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-amber-500 via-rose-500 to-emerald-500 shadow-sm shrink-0">
-            <span className="text-[10px] font-black text-white tracking-tighter">ES/AR</span>
+          {/* Small App Logo in Top Header */}
+          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-emerald-500/40 shadow-sm shrink-0 bg-emerald-950/40">
+            <img
+              src="/logo.png"
+              alt="ChatBridge ES-AR"
+              className="h-full w-full object-cover"
+            />
           </div>
 
           {/* Active Thread / Incognito Indicator */}

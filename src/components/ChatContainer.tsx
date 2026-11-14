@@ -36,8 +36,12 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         {/* Minimal Clean Empty State (Clean slate like WhatsApp / ChatGPT) */}
         {messages.length === 0 && (
           <div className="py-16 sm:py-24 px-4 text-center space-y-3 animate-fade-in flex flex-col items-center justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-emerald-500 shadow-md shadow-emerald-950/30">
-              <MessageCircle className="h-6 w-6 text-white" />
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-emerald-500/40 shadow-lg shadow-emerald-950/40 bg-emerald-950/40">
+              <img
+                src="/logo.png"
+                alt="ChatBridge ES-AR"
+                className="h-full w-full object-cover"
+              />
             </div>
 
             <div className="space-y-1">
